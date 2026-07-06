@@ -429,19 +429,19 @@ const StatisticsPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </View>
 
-    {/* === 学生详情列表 === */}
-    {statistics?.student_details && statistics.student_details.length > 0 && (
-      <View className="mt-4">
-        <Text className="block text-lg font-semibold mb-3">📋 学生成绩明细（共{statistics.student_details.length}人）</Text>
-        <View className="flex flex-col gap-2">
-          {statistics.student_details.map((student, idx) => (
-            <CollapsibleStudentCard key={student.student_no || idx} student={student} />
-          ))}
+      {/* === 学生详情列表 === */}
+      {statistics?.student_details && statistics.student_details.length > 0 && (
+        <View className="mt-4">
+          <Text className="block text-lg font-semibold mb-3">学生成绩明细（共{statistics.student_details.length}人）</Text>
+          <View className="flex flex-col gap-2">
+            {statistics.student_details.map((student, idx) => (
+              <CollapsibleStudentCard key={student.student_no || idx} student={student} />
+            ))}
+          </View>
         </View>
-      </View>
-    )}
+      )}
+    </View>
   )
 }
 
