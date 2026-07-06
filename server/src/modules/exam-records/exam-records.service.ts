@@ -464,4 +464,63 @@ export class ExamRecordsService {
     return formattedData as ExamRecord[]
   }
 
+  async fixDuplicates() {
+    const { data: allStudents, error } = await this.client
+      .from('students')
+      .select('id, student_no, name, grade, class_name')
+      .order('name')
+
+    if (error) return { code: 500, msg: '查询学生失败: ' + error.message, data: null }
+
+    const groups: Record<string, any[]> = {}
+    for (const s of allStudents) {
+      const key = `${s.name}|${s.grade}|${s.class_name}`
+      if (!groups[key]) groups[key] = []
+      groups[key].push(s)
+    }
+
+    let fixedCount = 0
+    let movedRecords = 0
+
+    for (const [key, students] of Object.entries(groups)) {
+      if (students.length <= 1) continue
+
+      students.sort((a, b) => {
+        if (a.student_no.length !== b.student_no.length)
+          return b.student_no.length - a.student_no.length
+        return b.student_no.localeCompare(a.student_no)
+      })
+
+      const correct = students[0]
+      const badStudents = students.slice(1)
+
+      for (const bad of badStudents) {
+        const { data: records } = await this.client
+          .from('exam_records')
+          .select('id')
+          .eq('student_id', bad.id)
+
+        if (records && records.length > 0) {
+          const { error: updateErr } = await this.client
+            .from('exam_records')
+            .update({ student_id: correct.id })
+            .eq('student_id', bad.id)
+          if (!updateErr) movedRecords += records.length
+        }
+
+        const { error: delErr } = await this.client
+          .from('students')
+          .delete()
+          .eq('id', bad.id)
+
+        if (!delErr) fixedCount++
+      }
+    }
+
+    return {
+      code: 200,
+      msg: '修复完成',
+      data: { deleted_students: fixedCount, moved_records: movedRecords }
+    }
   }
+}

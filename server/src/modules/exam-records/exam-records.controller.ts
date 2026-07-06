@@ -253,4 +253,10 @@ export class ExamRecordsController {
       }
     }
   }
+
+  @Delete('fix-duplicates')
+  @HttpCode(200)
+  async fixDuplicates() {
+    return this.examRecordsService.fixDuplicates()
+  }
 }
