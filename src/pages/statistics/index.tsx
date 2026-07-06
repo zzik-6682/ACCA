@@ -463,7 +463,7 @@ function CollapsibleStudentCard({ student }: { student: StudentDetail }) {
           </View>
           <View className="flex-1">
             <Text className="block text-sm font-semibold">{student.name}</Text>
-            <View className="flex flex-row items-center gap-2 mt-0.5">
+            <View className="flex flex-row items-center gap-2 mt-1">
               <Text className="block text-xs text-gray-500">{student.student_no}</Text>
               <Text className="block text-xs text-gray-400">|</Text>
               <Text className="block text-xs text-gray-500">{student.class_name}</Text>

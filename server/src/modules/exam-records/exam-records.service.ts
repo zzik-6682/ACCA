@@ -523,4 +523,20 @@ export class ExamRecordsService {
       data: { deleted_students: fixedCount, moved_records: movedRecords }
     }
   }
+
+  // 删除学生（同时删成绩）
+  async deleteStudent(studentNo: string) {
+    const { data: student } = await this.client
+      .from('students')
+      .select('id')
+      .eq('student_no', studentNo)
+      .single()
+
+    if (!student) return { code: 404, msg: '学生不存在' }
+
+    await this.client.from('exam_records').delete().eq('student_id', student.id)
+    await this.client.from('students').delete().eq('id', student.id)
+
+    return { code: 200, msg: '删除成功' }
+  }
 }

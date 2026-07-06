@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Query, HttpCode, Delete } from '@nestjs/common'
+import { Controller, Post, Get, Body, Query, HttpCode, Delete, Param } from '@nestjs/common'
 import { ExamRecordsService } from './exam-records.service'
 
 @Controller('exam-records')
@@ -258,5 +258,11 @@ export class ExamRecordsController {
   @HttpCode(200)
   async fixDuplicates() {
     return this.examRecordsService.fixDuplicates()
+  }
+
+  @Delete('student/:student_no')
+  @HttpCode(200)
+  async deleteStudent(@Param('student_no') student_no: string) {
+    return this.examRecordsService.deleteStudent(student_no)
   }
 }
