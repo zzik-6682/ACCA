@@ -145,11 +145,14 @@ export class StatisticsService {
       ? scoredRecords.reduce((sum, r) => sum + (r.score || 0), 0) / scoredRecords.length 
       : 0
 
-    // 5. 按科目统计（使用班级人数基数计算通过率）
+    // 5. 按科目统计（跳过免考科目 F1/F4/F6，免考科目在后面统一处理）
     const subjectMap = new Map<string, { code: string; name: string; passed: number; total: number }>()
     
     for (const record of (records || [])) {
       const code = record.subject_code
+      // 跳过免考科目，避免重复统计
+      if (EXEMPT_SUBJECTS.includes(code)) continue
+      
       if (!subjectMap.has(code)) {
         subjectMap.set(code, {
           code: code,
