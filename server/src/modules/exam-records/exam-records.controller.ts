@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Query, HttpCode } from '@nestjs/common'
+import { Controller, Post, Get, Body, Query, HttpCode, Delete } from '@nestjs/common'
 import { ExamRecordsService } from './exam-records.service'
 
 @Controller('exam-records')

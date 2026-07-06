@@ -430,6 +430,95 @@ const StatisticsPage = () => {
         </DialogContent>
       </Dialog>
     </View>
+
+    {/* === 学生详情列表 === */}
+    {statistics?.student_details && statistics.student_details.length > 0 && (
+      <View className="mt-4">
+        <Text className="block text-lg font-semibold mb-3">📋 学生成绩明细（共{statistics.student_details.length}人）</Text>
+        <View className="flex flex-col gap-2">
+          {statistics.student_details.map((student, idx) => (
+            <CollapsibleStudentCard key={student.student_no || idx} student={student} />
+          ))}
+        </View>
+      </View>
+    )}
+  )
+}
+
+function CollapsibleStudentCard({ student }: { student: StudentDetail }) {
+  const [expanded, setExpanded] = useState(false)
+  const exemptSubjects = ['F1', 'F4', 'F6']
+  const examRecords = student.exam_records || []
+  const actualRecords = examRecords.filter(r => !exemptSubjects.includes(r.subject_code))
+
+  return (
+    <Card className="overflow-hidden">
+      <View
+        className="flex flex-row items-center justify-between p-3 active:opacity-70"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <View className="flex flex-row items-center gap-3 flex-1">
+          <View className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+            <Text className="block text-sm font-bold text-blue-700">{student.name.charAt(0)}</Text>
+          </View>
+          <View className="flex-1">
+            <Text className="block text-sm font-semibold">{student.name}</Text>
+            <View className="flex flex-row items-center gap-2 mt-0.5">
+              <Text className="block text-xs text-gray-500">{student.student_no}</Text>
+              <Text className="block text-xs text-gray-400">|</Text>
+              <Text className="block text-xs text-gray-500">{student.class_name}</Text>
+            </View>
+          </View>
+          <Badge className="mr-2">{student.total_passed}门通过</Badge>
+          <Text className="block text-gray-400 text-lg">{expanded ? '▼' : '▶'}</Text>
+        </View>
+      </View>
+
+      {expanded && (
+        <View className="border-t border-gray-100 px-3 py-2">
+          {/* 免考科目 */}
+          <View className="mb-2">
+            <Text className="block text-xs text-gray-400 mb-1">免考科目</Text>
+            <View className="flex flex-row flex-wrap gap-1.5">
+              {exemptSubjects.map(code => (
+                <Badge key={code} className="bg-green-50 text-green-600 border-green-200 text-xs">
+                  {code} 免考
+                </Badge>
+              ))}
+            </View>
+          </View>
+
+          {/* 实际考试科目 */}
+          {actualRecords.length > 0 ? (
+            <View>
+              <Text className="block text-xs text-gray-400 mb-1">考试科目</Text>
+              <View className="flex flex-row flex-wrap gap-1.5">
+                {actualRecords.map((r, i) => (
+                  <Badge
+                    key={i}
+                    className={r.pass_status
+                      ? 'bg-emerald-50 text-emerald-600 border-emerald-200 text-xs'
+                      : 'bg-red-50 text-red-500 border-red-200 text-xs'
+                    }
+                  >
+                    {r.subject_code}={r.score}{r.pass_status ? '✅' : '❌'}
+                  </Badge>
+                ))}
+              </View>
+            </View>
+          ) : (
+            <Text className="block text-xs text-gray-400 italic">暂无考试记录</Text>
+          )}
+
+          {/* 通过门数统计 */}
+          <View className="mt-2 pt-2 border-t border-gray-50 flex flex-row justify-end">
+            <Text className="block text-xs text-blue-600 font-medium">
+              通过 {student.total_passed}/9 门
+            </Text>
+          </View>
+        </View>
+      )}
+    </Card>
   )
 }
 

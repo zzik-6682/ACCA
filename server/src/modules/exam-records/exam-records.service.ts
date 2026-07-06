@@ -463,4 +463,5 @@ export class ExamRecordsService {
     console.log('查询结果:', formattedData.length, '条记录')
     return formattedData as ExamRecord[]
   }
-}
+
+  }

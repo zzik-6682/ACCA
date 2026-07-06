@@ -115,9 +115,12 @@ export class StatisticsService {
         }))
       
       // 免考科目默认通过（不需要上传成绩）
-      const passedSubjects = [...EXEMPT_SUBJECTS, ...studentRecords
-        .filter(r => r.pass_status)
-        .map(r => r.subject_code)]
+      // 注意：如果成绩记录中也有免考科目（如F1/F4/F6），要去重避免重复统计
+      const exemptSet = new Set(EXEMPT_SUBJECTS)
+      const passedFromRecords = studentRecords
+        .filter(r => r.pass_status && !exemptSet.has(r.subject_code))
+        .map(r => r.subject_code)
+      const passedSubjects = [...EXEMPT_SUBJECTS, ...passedFromRecords]
       
       studentDetails.push({
         id: student.id,
