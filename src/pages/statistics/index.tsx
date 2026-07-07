@@ -158,10 +158,10 @@ const StatisticsPage = () => {
 
   const getGradeLabel = (grade: string) => {
     switch (grade) {
-      case '1': return '大一（25级）'
-      case '2': return '大二（24级）'
-      case '3': return '大三（23级）'
-      case '4': return '大四（22级）'
+      case '1': return '25级'
+      case '2': return '24级'
+      case '3': return '23级'
+      case '4': return '22级'
       default: return '全部年级'
     }
   }
@@ -183,10 +183,10 @@ const StatisticsPage = () => {
         <Tabs value={selectedGrade} onValueChange={setSelectedGrade}>
           <TabsList className="flex flex-row gap-2">
             <TabsTrigger value="all" className="text-sm">全部</TabsTrigger>
-            <TabsTrigger value="1" className="text-sm">大一</TabsTrigger>
-            <TabsTrigger value="2" className="text-sm">大二</TabsTrigger>
-            <TabsTrigger value="3" className="text-sm">大三</TabsTrigger>
-            <TabsTrigger value="4" className="text-sm">大四</TabsTrigger>
+            <TabsTrigger value="1" className="text-sm">25级</TabsTrigger>
+            <TabsTrigger value="2" className="text-sm">24级</TabsTrigger>
+            <TabsTrigger value="3" className="text-sm">23级</TabsTrigger>
+            <TabsTrigger value="4" className="text-sm">22级</TabsTrigger>
           </TabsList>
         </Tabs>
       </View>

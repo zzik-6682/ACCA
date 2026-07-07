@@ -26,10 +26,10 @@ const ACCA_SUBJECTS = [
 
 // 班级列表（年级和班级合并）
 const CLASSES = [
-  { value: '国会2501', label: '国会2501（大一）', grade: 1 },
-  { value: '国会2401', label: '国会2401（大二）', grade: 2 },
-  { value: '国会2301', label: '国会2301（大三）', grade: 3 },
-  { value: '国会2201', label: '国会2201（大四）', grade: 4 },
+  { value: '国会2501', label: '国会2501', grade: 1 },
+  { value: '国会2401', label: '国会2401', grade: 2 },
+  { value: '国会2301', label: '国会2301', grade: 3 },
+  { value: '国会2201', label: '国会2201', grade: 4 },
 ]
 
 // 最近考季（历史数据已导入，之后的数据需手动输入月份）
