@@ -134,13 +134,11 @@ const IndexPage = () => {
               <Badge variant="outline" className="text-xs">F9 财务管理</Badge>
             </View>
             <View className="flex flex-row flex-wrap gap-2 mt-2">
-              <Badge variant="secondary" className="text-xs">P1 专业会计师</Badge>
-              <Badge variant="secondary" className="text-xs">P2 公司报告</Badge>
-              <Badge variant="secondary" className="text-xs">P3 商业分析</Badge>
-              <Badge variant="secondary" className="text-xs">P4 高级财务管理</Badge>
-              <Badge variant="secondary" className="text-xs">P5 高级绩效管理</Badge>
-              <Badge variant="secondary" className="text-xs">P6 高级税务</Badge>
-              <Badge variant="secondary" className="text-xs">P7 高级审计</Badge>
+              <Badge variant="secondary" className="text-xs">SBL 战略商业领袖</Badge>
+              <Badge variant="secondary" className="text-xs">SBR 战略商业报告</Badge>
+              <Badge variant="secondary" className="text-xs">AFM 高级财务管理</Badge>
+              <Badge variant="secondary" className="text-xs">APM 高级绩效管理</Badge>
+              <Badge variant="secondary" className="text-xs">AAA 高级审计</Badge>
             </View>
             <Text className="block text-xs text-gray-400 mt-3">
               免考科目（F1/F4/F6）已默认全部通过，无需上传成绩

@@ -32,7 +32,7 @@ export class AiRecognizeService {
             {
               type: 'text',
               text: `你是一个ACCA成绩截图识别助手。请仔细查看这张截图，提取以下信息：
-1. 科目代码（如 F2, F3, F5, F7, F8, F9, P1-P7 等）
+1. 科目代码（如 F2, F3, F5, F7, F8, F9, SBL, SBR, AFM, APM, AAA 等）
 2. 科目名称
 3. 考试成绩（分数）
 4. 是否通过（50分及以上为通过）

@@ -7,7 +7,7 @@ export class ExportService {
   // ACCA 科目顺序
   private readonly SUBJECT_ORDER = [
     'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9',
-    'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'
+    'SBL', 'SBR', 'AFM', 'APM', 'AAA'
   ]
   
   // 免考科目（默认通过）

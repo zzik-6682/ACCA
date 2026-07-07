@@ -17,13 +17,11 @@ const ACCA_SUBJECTS = [
   { code: 'F7', name: '财务报告 Financial Reporting (FR)', exempt: false },
   { code: 'F8', name: '审计与认证业务 Audit and Assurance (AA)', exempt: false },
   { code: 'F9', name: '财务管理 Financial Management (FM)', exempt: false },
-  { code: 'P1', name: '专业会计师 Strategic Business Leader (SBL)', exempt: false },
-  { code: 'P2', name: '公司报告 Strategic Business Reporting (SBR)', exempt: false },
-  { code: 'P3', name: '商业分析 Advanced Performance Management (APM)', exempt: false },
-  { code: 'P4', name: '高级财务管理 Advanced Financial Management (AFM)', exempt: false },
-  { code: 'P5', name: '高级绩效管理 Advanced Performance Management (APM)', exempt: false },
-  { code: 'P6', name: '高级税务 Advanced Taxation (ATX)', exempt: false },
-  { code: 'P7', name: '高级审计与认证业务 Advanced Audit and Assurance (AAA)', exempt: false },
+  { code: 'SBL', name: '战略商业领袖 Strategic Business Leader (SBL)', exempt: false },
+  { code: 'SBR', name: '战略商业报告 Strategic Business Reporting (SBR)', exempt: false },
+  { code: 'AFM', name: '高级财务管理 Advanced Financial Management (AFM)', exempt: false },
+  { code: 'APM', name: '高级绩效管理 Advanced Performance Management (APM)', exempt: false },
+  { code: 'AAA', name: '高级审计与认证业务 Advanced Audit and Assurance (AAA)', exempt: false },
 ]
 
 // 班级列表（年级和班级合并）

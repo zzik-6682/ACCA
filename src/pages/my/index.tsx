@@ -10,7 +10,7 @@ import { Network } from '@/network'
 import { Lock, User, Key, Check, X } from 'lucide-react-taro'
 
 // 通过科目列表（包括免考）
-const PASS_SUBJECTS = ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7']
+const PASS_SUBJECTS = ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'SBL', 'SBR', 'AFM', 'APM', 'AAA']
 
 export default function MyPage() {
   const [step, setStep] = useState<'check' | 'set-password' | 'login' | 'records'>('check')
