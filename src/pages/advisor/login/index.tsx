@@ -18,8 +18,8 @@ export default function AdvisorLogin() {
   const checkPasswordStatus = async (advisorName: string) => {
     try {
       const res = await Network.request({
-        url: '/api/exam-records/advisor/check-password',
-        data: { name: advisorName }
+        url: `/api/exam-records/advisor/check-password?name=${encodeURIComponent(advisorName)}`,
+        method: 'GET'
       })
       if (res.data?.has_password) {
         setStep('login')
