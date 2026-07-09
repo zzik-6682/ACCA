@@ -12,7 +12,7 @@ export class ExportController {
     @Res() res: Response
   ) {
     // 验证管理员密码
-    const adminPassword = 'acca2024'
+    const adminPassword = 'acca520'
     if (password !== adminPassword) {
       res.status(401).json({ code: 401, msg: '密码错误' })
       return

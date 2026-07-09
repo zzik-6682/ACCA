@@ -525,23 +525,77 @@ export class ExamRecordsService {
   }
 
   /**
-   * 导师登录 - 验证导师姓名是否存在
+   * 导师登录 - 验证姓名和密码
    */
-  async advisorLogin(advisorName: string): Promise<{ success: boolean; message: string; student_count?: number }> {
-    const { count, error } = await this.client
+  async advisorLogin(advisorName: string, password: string): Promise<{ success: boolean; message: string; student_count?: number }> {
+    const { data: advisor, error } = await this.client
+      .from('advisors')
+      .select('name, password_hash')
+      .eq('name', advisorName)
+      .maybeSingle()
+
+    if (error || !advisor) {
+      return { success: false, message: '导师姓名不存在' }
+    }
+
+    if (!advisor.password_hash) {
+      return { success: false, message: '请先设置密码' }
+    }
+
+    if (advisor.password_hash !== password) {
+      return { success: false, message: '密码错误' }
+    }
+
+    const { count } = await this.client
       .from('students')
       .select('*', { count: 'exact', head: true })
       .eq('advisor_name', advisorName)
 
-    if (error) {
-      return { success: false, message: '查询失败' }
-    }
+    return { success: true, message: '登录成功', student_count: count || 0 }
+  }
 
-    if (!count || count === 0) {
+  /**
+   * 检查导师是否已设置密码
+   */
+  async advisorHasPassword(advisorName: string): Promise<boolean> {
+    const { data: advisor, error } = await this.client
+      .from('advisors')
+      .select('password_hash')
+      .eq('name', advisorName)
+      .maybeSingle()
+
+    if (error || !advisor) return false
+    return !!advisor.password_hash
+  }
+
+  /**
+   * 导师设置密码
+   */
+  async advisorSetPassword(advisorName: string, password: string): Promise<{ success: boolean; message: string }> {
+    const { data: advisor, error } = await this.client
+      .from('advisors')
+      .select('name, password_hash')
+      .eq('name', advisorName)
+      .maybeSingle()
+
+    if (error || !advisor) {
       return { success: false, message: '导师姓名不存在' }
     }
 
-    return { success: true, message: '登录成功', student_count: count }
+    if (advisor.password_hash) {
+      return { success: false, message: '已设置过密码，如需修改请联系管理员' }
+    }
+
+    const { error: updateError } = await this.client
+      .from('advisors')
+      .update({ password_hash: password })
+      .eq('name', advisorName)
+
+    if (updateError) {
+      return { success: false, message: '设置密码失败' }
+    }
+
+    return { success: true, message: '密码设置成功' }
   }
 
   /**

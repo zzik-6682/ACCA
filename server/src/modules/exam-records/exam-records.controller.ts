@@ -267,19 +267,48 @@ export class ExamRecordsController {
   }
 
   /**
-   * 导师登录
+   * 导师登录 - 验证姓名和密码
    */
   @Post('advisor/login')
   @HttpCode(200)
-  async advisorLogin(@Body() body: { name: string }) {
+  async advisorLogin(@Body() body: { name: string; password: string }) {
     if (!body.name) {
       return { code: 400, msg: '请输入导师姓名', data: null }
     }
-    const result = await this.examRecordsService.advisorLogin(body.name)
+    const result = await this.examRecordsService.advisorLogin(body.name, body.password || '')
     return {
       code: result.success ? 200 : 401,
       msg: result.message,
       data: result.success ? { name: body.name, student_count: result.student_count } : null
+    }
+  }
+
+  /**
+   * 检查导师是否已设置密码
+   */
+  @Get('advisor/check-password')
+  async advisorCheckPassword(@Query('name') name: string) {
+    if (!name) {
+      return { code: 400, msg: '请输入导师姓名', data: null }
+    }
+    const hasPassword = await this.examRecordsService.advisorHasPassword(name)
+    return { code: 200, msg: '查询成功', data: { has_password: hasPassword } }
+  }
+
+  /**
+   * 导师设置密码
+   */
+  @Post('advisor/set-password')
+  @HttpCode(200)
+  async advisorSetPassword(@Body() body: { name: string; password: string }) {
+    if (!body.name || !body.password) {
+      return { code: 400, msg: '请提供导师姓名和密码', data: null }
+    }
+    const result = await this.examRecordsService.advisorSetPassword(body.name, body.password)
+    return {
+      code: result.success ? 200 : 400,
+      msg: result.message,
+      data: null
     }
   }
 
