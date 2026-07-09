@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Network } from '@/network'
-import { TrendingUp, Users, Award, Lock, Download, Upload } from 'lucide-react-taro'
+import { Users, Award, Lock, Download, Upload } from 'lucide-react-taro'
 
 interface StudentDetail {
   id: number
@@ -234,11 +234,7 @@ const StatisticsPage = () => {
                   <Text className="block text-2xl font-bold text-green-600 mt-1">{statistics.total_records}</Text>
                   <Text className="block text-xs text-gray-500">考试记录</Text>
                 </View>
-                <View className="flex flex-col items-center">
-                  <TrendingUp size={24} color="#D97706" />
-                  <Text className="block text-2xl font-bold text-orange-500 mt-1">{statistics.pass_rate.toFixed(1)}%</Text>
-                  <Text className="block text-xs text-gray-500">通过率</Text>
-                </View>
+
               </View>
               <View className="mt-4 pt-4 border-t border-gray-100">
                 <View className="flex flex-row justify-between items-center">
