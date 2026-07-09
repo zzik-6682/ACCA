@@ -1,213 +1,275 @@
-import { useState, useMemo } from 'react'
-import Taro from '@tarojs/taro'
 import { View, Text } from '@tarojs/components'
-import { Card, CardContent } from '@/components/ui/card'
+import Taro from '@tarojs/taro'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { ChevronDown, ChevronUp } from 'lucide-react-taro'
 import { Network } from '@/network'
-import { ChevronDown, ChevronUp, GraduationCap } from 'lucide-react-taro'
 
-const PASS_SUBJECTS = ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'SBL', 'SBR', 'AFM', 'APM', 'AAA']
+interface ExamRecord {
+  subject_code: string
+  subject_name: string
+  score: number
+  pass_status: boolean
+  exam_type: string
+}
 
-const GRADE_MAP: Record<number, string> = { 1: '25级', 2: '24级', 3: '23级', 4: '22级' }
+interface StudentInfo {
+  student_no: string
+  name: string
+  class_name: string
+  total_passed: number
+  exam_records: ExamRecord[]
+}
+
+interface AdvisorResponse {
+  code: number
+  msg: string
+  data: {
+    advisor_name: string
+    total_students: number
+    avg_passed: number
+    students: StudentInfo[]
+  }
+}
 
 export default function AdvisorPage() {
+  console.log('[AdvisorPage] 页面加载')
   const [step, setStep] = useState<'check' | 'set-password' | 'login' | 'dashboard'>('check')
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [students, setStudents] = useState<any[]>([])
-  const [expandedStudent, setExpandedStudent] = useState<string | null>(null)
+  const [students, setStudents] = useState<StudentInfo[]>([])
+  const [advisorName, setAdvisorName] = useState('')
+  const [totalStudents, setTotalStudents] = useState(0)
+  const [avgPassed, setAvgPassed] = useState(0)
+  const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set())
+
+  const toggleExpand = (studentNo: string) => {
+    setExpandedStudents(prev => {
+      const next = new Set(prev)
+      if (next.has(studentNo)) {
+        next.delete(studentNo)
+      } else {
+        next.add(studentNo)
+      }
+      return next
+    })
+  }
 
   const handleCheckPassword = async () => {
-    if (!name.trim()) {
+    const trimmedName = name.trim()
+    if (!trimmedName) {
       Taro.showToast({ title: '请输入导师姓名', icon: 'none' })
       return
     }
-
     setLoading(true)
     try {
       const res = await Network.request({
-        url: `/api/advisor/check-password?name=${encodeURIComponent(name.trim())}`,
-        method: 'GET'
+        url: `/api/advisor/check-password?name=${encodeURIComponent(trimmedName)}`,
+        method: 'GET',
       })
-
+      console.log('[AdvisorPage] check-password:', res.data)
       if (res.data.code === 200 && res.data.data?.has_password) {
         setStep('login')
-      } else {
+      } else if (res.data.code === 200 && !res.data.data?.has_password) {
         setStep('set-password')
-        Taro.showToast({ title: '请先设置密码', icon: 'none' })
+      } else {
+        Taro.showToast({ title: res.data.msg || '查询失败', icon: 'none' })
       }
-    } catch (error) {
-      Taro.showToast({ title: '验证失败，请重试', icon: 'error' })
+    } catch (err: any) {
+      console.error('[AdvisorPage] check-password error:', err)
+      Taro.showToast({ title: '网络错误，请重试', icon: 'none' })
     } finally {
       setLoading(false)
     }
   }
 
   const handleSetPassword = async () => {
-    if (password.length < 4) {
-      Taro.showToast({ title: '密码至少4位', icon: 'none' })
+    if (!password.trim() || password.trim().length < 6) {
+      Taro.showToast({ title: '密码至少6位', icon: 'none' })
       return
     }
-
+    if (password !== confirmPassword) {
+      Taro.showToast({ title: '两次密码不一致', icon: 'none' })
+      return
+    }
     setLoading(true)
     try {
       const res = await Network.request({
         url: '/api/advisor/set-password',
         method: 'POST',
-        data: { name: name.trim(), password }
+        data: { name: name.trim(), password: password.trim() },
       })
-
+      console.log('[AdvisorPage] set-password:', res.data)
       if (res.data.code === 200) {
-        Taro.showToast({ title: '密码设置成功，请登录', icon: 'success' })
-        setPassword('')
+        Taro.showToast({ title: '密码设置成功', icon: 'none' })
         setStep('login')
+        setPassword('')
+        setConfirmPassword('')
       } else {
-        Taro.showToast({ title: res.data.msg || '设置失败', icon: 'error' })
+        Taro.showToast({ title: res.data.msg || '设置失败', icon: 'none' })
       }
-    } catch (error) {
-      Taro.showToast({ title: '设置失败，请重试', icon: 'error' })
+    } catch (err: any) {
+      console.error('[AdvisorPage] set-password error:', err)
+      Taro.showToast({ title: '网络错误，请重试', icon: 'none' })
     } finally {
       setLoading(false)
     }
   }
 
   const handleLogin = async () => {
-    if (!password) {
+    if (!password.trim()) {
       Taro.showToast({ title: '请输入密码', icon: 'none' })
       return
     }
-
     setLoading(true)
     try {
       const res = await Network.request({
-        url: '/api/advisor/my-students',
+        url: '/api/advisor/login',
         method: 'POST',
-        data: { name: name.trim(), password }
+        data: { name: name.trim(), password: password.trim() },
       })
-
+      console.log('[AdvisorPage] login:', res.data)
       if (res.data.code === 200) {
-        setStudents(res.data.data || [])
-        setStep('dashboard')
+        await loadStudents()
       } else {
-        Taro.showToast({ title: res.data.msg || '登录失败', icon: 'error' })
+        Taro.showToast({ title: res.data.msg || '登录失败', icon: 'none' })
       }
-    } catch (error) {
-      Taro.showToast({ title: '登录失败，请重试', icon: 'error' })
+    } catch (err: any) {
+      console.error('[AdvisorPage] login error:', err)
+      Taro.showToast({ title: '网络错误，请重试', icon: 'none' })
     } finally {
       setLoading(false)
     }
   }
 
-  const toggleExpand = (studentNo: string) => {
-    setExpandedStudent(expandedStudent === studentNo ? null : studentNo)
+  const loadStudents = async () => {
+    setLoading(true)
+    try {
+      const res = await Network.request({
+        url: '/api/advisor/my-students',
+        method: 'POST',
+        data: { name: name.trim(), password: password.trim() },
+      })
+      console.log('[AdvisorPage] my-students:', res.data)
+      if (res.data.code === 200) {
+        const data = res.data as AdvisorResponse
+        setStudents(data.data.students)
+        setAdvisorName(data.data.advisor_name)
+        setTotalStudents(data.data.total_students)
+        setAvgPassed(data.data.avg_passed)
+        setStep('dashboard')
+      } else {
+        Taro.showToast({ title: res.data.msg || '获取失败', icon: 'none' })
+      }
+    } catch (err: any) {
+      console.error('[AdvisorPage] my-students error:', err)
+      Taro.showToast({ title: '网络错误，请重试', icon: 'none' })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleBack = () => {
-    setStep('check')
-    setPassword('')
-    setStudents([])
+    if (step === 'dashboard') {
+      setStep('check')
+      setName('')
+      setPassword('')
+      setStudents([])
+    } else {
+      setStep('check')
+      setPassword('')
+      setConfirmPassword('')
+    }
   }
-
-  // 统计
-  const stats = useMemo(() => {
-    const total = students.length
-    const avgPassed = total > 0 ? Math.round(students.reduce((s, st) => s + (st.total_passed || 0), 0) / total) : 0
-    return { total, avgPassed }
-  }, [students])
 
   return (
     <View className="min-h-screen bg-gray-50 p-4">
-      {/* 检查密码 / 设置密码 / 登录 */}
       {step !== 'dashboard' && (
         <View className="flex flex-col items-center pt-16">
-          <View className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-            <GraduationCap size={32} color="#1E40AF" />
-          </View>
-          <Text className="block text-xl font-bold text-blue-900 mb-8">学业导师登录</Text>
+          <Text className="block text-2xl font-bold text-blue-900 mb-2">学业导师登录</Text>
+          <Text className="block text-sm text-gray-500 mb-8">查看指导学生考证情况</Text>
 
           <Card className="w-full max-w-sm">
             <CardContent className="p-6">
-              {/* 输入姓名 */}
               {step === 'check' && (
                 <View>
-                  <Label className="mb-2">导师姓名</Label>
-                  <View className="bg-gray-50 rounded-lg px-4 py-3 mb-4">
+                  <Text className="block text-sm font-medium text-gray-700 mb-2">导师姓名</Text>
+                  <View className="flex flex-row items-center gap-3">
                     <Input
-                      className="w-full bg-transparent"
+                      className="flex-1"
                       placeholder="请输入导师姓名"
                       value={name}
                       onInput={(e) => setName(e.detail.value)}
                     />
+                    <Button onClick={handleCheckPassword} disabled={loading}>
+                      <Text>{loading ? '查询中...' : '下一步'}</Text>
+                    </Button>
                   </View>
-                  <Button
-                    className="w-full bg-blue-800 text-white rounded-lg py-3"
-                    onClick={handleCheckPassword}
-                    disabled={loading}
-                  >
-                    {loading ? '验证中...' : '下一步'}
-                  </Button>
                 </View>
               )}
 
-              {/* 设置密码 */}
               {step === 'set-password' && (
                 <View>
-                  <Text className="block text-sm text-gray-500 mb-4">
-                    导师 {name.trim()}，请设置登录密码
-                  </Text>
-                  <Label className="mb-2">设置密码</Label>
-                  <View className="bg-gray-50 rounded-lg px-4 py-3 mb-4">
+                  <Text className="block text-sm font-medium text-gray-700 mb-1">导师：{name}</Text>
+                  <Text className="block text-xs text-gray-400 mb-4">首次登录，请设置密码</Text>
+                  <View className="mb-3">
+                    <Text className="block text-sm text-gray-600 mb-1">设置密码</Text>
                     <Input
-                      className="w-full bg-transparent"
+                      className="w-full"
+                      placeholder="至少6位"
                       password
-                      placeholder="至少4位"
                       value={password}
                       onInput={(e) => setPassword(e.detail.value)}
                     />
                   </View>
-                  <Button
-                    className="w-full bg-blue-800 text-white rounded-lg py-3 mb-2"
-                    onClick={handleSetPassword}
-                    disabled={loading}
-                  >
-                    {loading ? '设置中...' : '设置密码'}
-                  </Button>
-                  <Button variant="ghost" className="w-full" onClick={handleBack}>
-                    返回
-                  </Button>
+                  <View className="mb-4">
+                    <Text className="block text-sm text-gray-600 mb-1">确认密码</Text>
+                    <Input
+                      className="w-full"
+                      placeholder="再次输入密码"
+                      password
+                      value={confirmPassword}
+                      onInput={(e) => setConfirmPassword(e.detail.value)}
+                    />
+                  </View>
+                  <View className="flex flex-row gap-3">
+                    <Button onClick={handleBack} variant="outline" className="flex-1">
+                      <Text>返回</Text>
+                    </Button>
+                    <Button onClick={handleSetPassword} disabled={loading} className="flex-1">
+                      <Text>{loading ? '设置中...' : '确认设置'}</Text>
+                    </Button>
+                  </View>
                 </View>
               )}
 
-              {/* 登录 */}
               {step === 'login' && (
                 <View>
-                  <Text className="block text-sm text-gray-500 mb-4">
-                    导师 {name.trim()}，请输入密码
-                  </Text>
-                  <Label className="mb-2">密码</Label>
-                  <View className="bg-gray-50 rounded-lg px-4 py-3 mb-4">
+                  <Text className="block text-sm font-medium text-gray-700 mb-1">导师：{name}</Text>
+                  <Text className="block text-xs text-gray-400 mb-4">请输入密码登录</Text>
+                  <View className="mb-4">
+                    <Text className="block text-sm text-gray-600 mb-1">密码</Text>
                     <Input
-                      className="w-full bg-transparent"
-                      password
+                      className="w-full"
                       placeholder="请输入密码"
+                      password
                       value={password}
                       onInput={(e) => setPassword(e.detail.value)}
                     />
                   </View>
-                  <Button
-                    className="w-full bg-blue-800 text-white rounded-lg py-3 mb-2"
-                    onClick={handleLogin}
-                    disabled={loading}
-                  >
-                    {loading ? '登录中...' : '登录'}
-                  </Button>
-                  <Button variant="ghost" className="w-full" onClick={handleBack}>
-                    返回
-                  </Button>
+                  <View className="flex flex-row gap-3">
+                    <Button onClick={handleBack} variant="outline" className="flex-1">
+                      <Text>返回</Text>
+                    </Button>
+                    <Button onClick={handleLogin} disabled={loading} className="flex-1">
+                      <Text>{loading ? '登录中...' : '登录'}</Text>
+                    </Button>
+                  </View>
                 </View>
               )}
             </CardContent>
@@ -215,113 +277,84 @@ export default function AdvisorPage() {
         </View>
       )}
 
-      {/* 学生成绩面板 */}
       {step === 'dashboard' && (
         <View>
-          {/* 顶部栏 */}
-          <View className="flex items-center justify-between mb-4">
-            <View>
-              <Text className="block text-lg font-bold text-blue-900">导师面板</Text>
-              <Text className="block text-sm text-gray-500">{name.trim()} · {stats.total}名学生</Text>
-            </View>
-            <Button variant="outline" size="sm" onClick={handleBack}>
-              退出
+          <View className="flex flex-row items-center gap-3 mb-4">
+            <Button onClick={handleBack} variant="ghost" size="sm">
+              <Text>← 退出</Text>
             </Button>
+            <View className="flex-1">
+              <Text className="block text-lg font-bold text-blue-900">{advisorName}老师</Text>
+              <Text className="block text-xs text-gray-500">指导学生考证情况</Text>
+            </View>
           </View>
 
-          {/* 统计卡片 */}
-          <View className="flex flex-row gap-4 mb-6">
+          <View className="flex flex-row gap-3 mb-4">
             <Card className="flex-1">
-              <CardContent className="p-4 text-center">
-                <Text className="block text-2xl font-bold text-blue-800">{stats.total}</Text>
+              <CardContent className="p-3 text-center">
+                <Text className="block text-2xl font-bold text-blue-900">{totalStudents}</Text>
                 <Text className="block text-xs text-gray-500">学生数</Text>
               </CardContent>
             </Card>
             <Card className="flex-1">
-              <CardContent className="p-4 text-center">
-                <Text className="block text-2xl font-bold text-emerald-600">{stats.avgPassed}</Text>
+              <CardContent className="p-3 text-center">
+                <Text className="block text-2xl font-bold text-blue-900">{avgPassed.toFixed(1)}</Text>
                 <Text className="block text-xs text-gray-500">平均通过门数</Text>
               </CardContent>
             </Card>
           </View>
 
-          {/* 学生列表 */}
-          <View className="flex flex-col gap-3">
+          <View className="space-y-2">
             {students.map((student) => {
-              const isExpanded = expandedStudent === student.student_no
-              const passedCount = student.total_passed || 0
-              const totalCount = PASS_SUBJECTS.length
-              const rate = Math.round((passedCount / totalCount) * 100)
-
+              const isExpanded = expandedStudents.has(student.student_no)
               return (
-                <Card key={student.student_no}>
-                  <CardContent className="p-4">
-                    {/* 学生基本信息 */}
-                    <View
-                      className="flex flex-row items-center justify-between"
-                      onClick={() => toggleExpand(student.student_no)}
-                    >
-                      <View className="flex-1">
-                        <View className="flex flex-row items-center gap-2 mb-1">
-                          <Text className="block text-base font-semibold">{student.name}</Text>
-                          <Badge variant="secondary" className="text-xs">
-                            {GRADE_MAP[student.grade] || `${student.grade}级`}
-                          </Badge>
-                        </View>
-                        <Text className="block text-xs text-gray-500">
-                          {student.student_no} · {student.class_name}
-                        </Text>
+                <Card key={student.student_no} className="overflow-hidden">
+                  <View
+                    className="flex flex-row items-center justify-between p-3 active:bg-gray-50"
+                    onClick={() => toggleExpand(student.student_no)}
+                  >
+                    <View className="flex-1">
+                      <View className="flex flex-row items-center gap-2">
+                        <Text className="block text-sm font-semibold text-gray-800">{student.name}</Text>
+                        <Badge variant="outline" className="text-xs">{student.class_name}</Badge>
                       </View>
-                      <View className="flex items-center gap-2">
-                        <Text className="text-sm font-bold text-blue-800">
-                          {passedCount}/{totalCount}
-                        </Text>
-                        {isExpanded ? (
-                          <ChevronUp size={16} color="#6B7280" />
-                        ) : (
-                          <ChevronDown size={16} color="#6B7280" />
-                        )}
+                      <View className="flex flex-row items-center gap-2 mt-1">
+                        <View className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+                          <View
+                            className="h-full bg-blue-500 rounded-full"
+                            style={{ width: `${(student.total_passed / 13) * 100}%` }}
+                          />
+                        </View>
+                        <Text className="block text-xs text-gray-500">通过{student.total_passed}门</Text>
                       </View>
                     </View>
-
-                    {/* 进度条 */}
-                    <View className="w-full h-2 bg-gray-100 rounded-full mt-3 mb-1">
-                      <View
-                        className="h-full bg-emerald-500 rounded-full transition-all"
-                        style={{ width: `${rate}%` }}
-                      />
-                    </View>
-
-                    {/* 展开后显示成绩明细 */}
-                    {isExpanded && (
-                      <View className="mt-4 pt-4 border-t border-gray-100">
-                        <View className="flex flex-row flex-wrap gap-2">
-                          {PASS_SUBJECTS.map((subj) => {
-                            const record = student.exam_records?.find((r: any) => r.subject_code === subj)
-                            const passed = record ? record.score >= 50 : false
-                            const exempt = !record && ['F1', 'F4', 'F6'].includes(subj)
-                            return (
-                              <View
-                                key={subj}
-                                className={`px-3 py-1 rounded-lg text-xs font-medium ${
-                                  passed
-                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                    : exempt
-                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                    : 'bg-gray-50 text-gray-400 border border-gray-200'
-                                }`}
-                              >
-                                <Text className="block">
-                                  {subj}
-                                  {passed ? ` ${record.score}` : exempt ? ' 免考' : ''}
-                                </Text>
-                              </View>
-                            )
-                          })}
-                        </View>
-                      </View>
+                    {isExpanded ? (
+                      <ChevronUp size={18} color="#9CA3AF" />
+                    ) : (
+                      <ChevronDown size={18} color="#9CA3AF" />
                     )}
-                  </CardContent>
+                  </View>
+
+                  {isExpanded && (
+                    <View className="px-3 pb-3 border-t border-gray-100">
+                      <View className="mt-2 space-y-1">
+                        {student.exam_records.map((record) => (
+                          <View key={record.subject_code} className="flex flex-row items-center justify-between py-1">
+                            <View className="flex flex-row items-center gap-2">
+                              <Badge variant="outline" className="text-xs">{record.subject_code}</Badge>
+                              <Text className="block text-xs text-gray-600">{record.subject_name}</Text>
+                            </View>
+                            <View className="flex flex-row items-center gap-2">
+                              <Text className="block text-sm font-semibold text-gray-800">{record.score}</Text>
+                              <Badge variant={record.pass_status ? 'secondary' : 'destructive'} className="text-xs">
+                                {record.pass_status ? '通过' : '未过'}
+                              </Badge>
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
                 </Card>
               )
             })}
