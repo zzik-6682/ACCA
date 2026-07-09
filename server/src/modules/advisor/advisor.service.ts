@@ -81,29 +81,36 @@ export class AdvisorService {
 
     const studentNos = mappings.map(m => m.student_no)
 
-    // Get students info
+    // Get students info (仅25级)
     const { data: students, error: studentError } = await this.client
       .from('students')
       .select('*')
       .in('student_no', studentNos)
+      .eq('grade', 1)
       .order('student_no', { ascending: true })
 
     if (studentError || !students) return []
 
-    // Get exam records for these students
+    // Get exam records for these students (use student_id UUID)
+    const studentIds = students.map(s => s.id)
     const { data: records, error: recordError } = await this.client
       .from('exam_records')
       .select('*')
-      .in('student_no', studentNos)
+      .in('student_id', studentIds)
       .order('subject_code', { ascending: true })
 
     if (recordError) return []
 
-    // Group records by student
+    // Build student_no -> id map for record lookup
+    const idToNo = new Map(students.map(s => [s.id, s.student_no]))
+
+    // Group records by student_no
     const recordMap = new Map<string, any[]>()
     for (const r of (records || [])) {
-      if (!recordMap.has(r.student_no)) recordMap.set(r.student_no, [])
-      recordMap.get(r.student_no)!.push(r)
+      const sno = idToNo.get(r.student_id)
+      if (!sno) continue
+      if (!recordMap.has(sno)) recordMap.set(sno, [])
+      recordMap.get(sno)!.push(r)
     }
 
     // Exempt subjects
