@@ -24,15 +24,8 @@ const IndexPage = () => {
 
   const handleAdvisor = () => {
     console.log('[DEBUG] handleAdvisor called, navigating to advisor page')
-    Taro.showToast({ title: '正在跳转...', icon: 'none', duration: 500 })
-    Taro.navigateTo({ 
-      url: '/pages/advisor/index',
-      fail: (err) => {
-        console.error('[DEBUG] navigateTo failed:', err)
-        // fallback: try hash navigation
-        window.location.hash = '#/pages/advisor/index'
-      }
-    })
+    // 直接使用 hash 跳转，绕过 Taro navigateTo 可能的兼容问题
+    window.location.hash = '#/pages/advisor/index'
   }
 
   const handleAdminClick = () => {
