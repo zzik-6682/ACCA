@@ -4,7 +4,7 @@ import Taro from '@tarojs/taro'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Upload, Users, Lock } from 'lucide-react-taro'
+import { Upload, Users, Lock, UsersRound } from 'lucide-react-taro'
 import { useState } from 'react'
 
 const ADMIN_PASSWORD = 'acca2024' // 管理员密码
@@ -42,6 +42,10 @@ const IndexPage = () => {
     setShowAdminDialog(false)
     setAdminPassword('')
     setPasswordError(false)
+  }
+
+  const handleAdvisorClick = () => {
+    Taro.navigateTo({ url: '/pages/advisor/login/index' })
   }
 
   return (
@@ -88,6 +92,26 @@ const IndexPage = () => {
               <View className="flex-shrink-0">
                 <Button size="sm" onClick={handleMyRecords}>
                   <Text className="text-sm">查看</Text>
+                </Button>
+              </View>
+            </View>
+          </CardContent>
+        </Card>
+
+        {/* 导师入口 */}
+        <Card className="shadow-sm">
+          <CardContent className="p-4">
+            <View className="flex flex-row items-center gap-4">
+              <View className="flex-shrink-0">
+                <UsersRound size={32} color="#1E40AF" />
+              </View>
+              <View className="flex-1">
+                <Text className="block text-lg font-semibold text-gray-900">学业导师入口</Text>
+                <Text className="block text-sm text-gray-500 mt-1">查看指导学生考证进度</Text>
+              </View>
+              <View className="flex-shrink-0">
+                <Button size="sm" onClick={handleAdvisorClick}>
+                  <Text className="text-sm">进入</Text>
                 </Button>
               </View>
             </View>

@@ -524,6 +524,66 @@ export class ExamRecordsService {
     }
   }
 
+  /**
+   * 导师登录 - 验证导师姓名是否存在
+   */
+  async advisorLogin(advisorName: string): Promise<{ success: boolean; message: string; student_count?: number }> {
+    const { count, error } = await this.client
+      .from('students')
+      .select('*', { count: 'exact', head: true })
+      .eq('advisor_name', advisorName)
+
+    if (error) {
+      return { success: false, message: '查询失败' }
+    }
+
+    if (!count || count === 0) {
+      return { success: false, message: '导师姓名不存在' }
+    }
+
+    return { success: true, message: '登录成功', student_count: count }
+  }
+
+  /**
+   * 获取导师的学生列表（含成绩）
+   */
+  async getAdvisorStudents(advisorName: string) {
+    const { data: students, error } = await this.client
+      .from('students')
+      .select('id, student_no, name, grade, class_name, advisor_name')
+      .eq('advisor_name', advisorName)
+      .order('name')
+
+    if (error) throw new Error(`查询失败: ${error.message}`)
+    if (!students || students.length === 0) return []
+
+    const result: any[] = []
+    for (const student of students) {
+      const { data: records } = await this.client
+        .from('exam_records')
+        .select('subject_code, subject_name, score, pass_status, exam_season, exam_type')
+        .eq('student_id', student.id)
+        .order('subject_code')
+
+      // Calculate exempt subjects
+      const exemptSubjects = ['F1', 'F4', 'F6']
+      const examRecords = records || []
+      const passedSubjects = new Set(examRecords.filter(r => r.pass_status).map(r => r.subject_code))
+      const exemptCount = exemptSubjects.filter(s => !passedSubjects.has(s)).length
+
+      result.push({
+        student_no: student.student_no,
+        name: student.name,
+        grade: student.grade,
+        class_name: student.class_name,
+        total_passed: passedSubjects.size + exemptCount,
+        exam_records: examRecords
+      })
+    }
+
+    return result
+  }
+
   // 删除学生（同时删成绩）
   async deleteStudent(studentNo: string) {
     const { data: student } = await this.client

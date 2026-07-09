@@ -265,4 +265,37 @@ export class ExamRecordsController {
   async deleteStudent(@Param('student_no') student_no: string) {
     return this.examRecordsService.deleteStudent(student_no)
   }
+
+  /**
+   * 导师登录
+   */
+  @Post('advisor/login')
+  @HttpCode(200)
+  async advisorLogin(@Body() body: { name: string }) {
+    if (!body.name) {
+      return { code: 400, msg: '请输入导师姓名', data: null }
+    }
+    const result = await this.examRecordsService.advisorLogin(body.name)
+    return {
+      code: result.success ? 200 : 401,
+      msg: result.message,
+      data: result.success ? { name: body.name, student_count: result.student_count } : null
+    }
+  }
+
+  /**
+   * 获取导师的学生列表
+   */
+  @Get('advisor/students')
+  async getAdvisorStudents(@Query('name') name: string) {
+    if (!name) {
+      return { code: 400, msg: '请输入导师姓名', data: [] }
+    }
+    try {
+      const students = await this.examRecordsService.getAdvisorStudents(name)
+      return { code: 200, msg: '查询成功', data: students }
+    } catch (error) {
+      return { code: 500, msg: error.message || '查询失败', data: [] }
+    }
+  }
 }
