@@ -24,8 +24,10 @@ const IndexPage = () => {
 
   const handleAdvisor = () => {
     console.log('[DEBUG] handleAdvisor called, navigating to advisor page')
-    // 直接使用 hash 跳转，绕过 Taro navigateTo 可能的兼容问题
-    window.location.hash = '#/pages/advisor/index'
+    Taro.reLaunch({ url: '/pages/advisor/index' }).catch(() => {
+      // fallback
+      window.location.href = window.location.origin + '/#/pages/advisor/index'
+    })
   }
 
   const handleAdminClick = () => {
