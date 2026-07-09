@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '@/app.module';
 import * as express from 'express';
+import * as path from 'path';
 import { HttpStatusInterceptor } from '@/interceptors/http-status.interceptor';
 
 function parsePort(): number {
@@ -11,6 +12,10 @@ function parsePort(): number {
     if (!isNaN(port) && port > 0 && port < 65536) {
       return port;
     }
+  }
+  const envPort = parseInt(process.env.DEPLOY_RUN_PORT || '', 10);
+  if (!isNaN(envPort) && envPort > 0 && envPort < 65536) {
+    return envPort;
   }
   return 3000;
 }
@@ -25,6 +30,10 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+  // 静态文件服务：生产环境 H5 构建产物
+  const staticPath = path.resolve(__dirname, '../../dist-web');
+  app.use(express.static(staticPath));
 
   // 全局拦截器：统一将 POST 请求的 201 状态码改为 200
   app.useGlobalInterceptors(new HttpStatusInterceptor());
