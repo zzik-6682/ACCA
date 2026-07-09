@@ -23,6 +23,11 @@ function parsePort(): number {
   if (!isNaN(envPort) && envPort > 0 && envPort < 65536) {
     return envPort;
   }
+  // 外部部署（Railway 等平台设置 PORT 环境变量）
+  const port = parseInt(process.env.PORT || '', 10);
+  if (!isNaN(port) && port > 0 && port < 65536) {
+    return port;
+  }
   return 3000;
 }
 

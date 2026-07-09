@@ -1,0 +1,11 @@
+{
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "pnpm install --no-frozen-lockfile --ignore-scripts && pnpm --filter server build && pnpm build:web"
+  },
+  "deploy": {
+    "startCommand": "node server/dist/main.js -p ${PORT:-3000}",
+    "healthcheckPath": "/api/health",
+    "restartPolicyType": "ON_FAILURE"
+  }
+}
