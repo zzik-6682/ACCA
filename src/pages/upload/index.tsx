@@ -58,13 +58,7 @@ const UploadPage = () => {
   const [screenshotKey, setScreenshotKey] = useState('')
   const [customMonth, setCustomMonth] = useState('')
   const [isCustomSeason, setIsCustomSeason] = useState(false)
-  const [aiRecognizing, setAiRecognizing] = useState(false)
-  const [recognitionResult, setRecognitionResult] = useState<{
-    subjectCode: string
-    subjectName: string
-    score: number
-    passStatus: boolean
-  } | null>(null)
+
 
   // 获取当前选择的科目信息
   const selectedSubject = ACCA_SUBJECTS.find(s => s.code === formData.subjectCode)
@@ -183,47 +177,7 @@ const UploadPage = () => {
             ...prev, 
             screenshotUrl: imageUrl
           }))
-          Taro.showToast({ title: '上传成功，正在识别...', icon: 'success' })
-          
-          // 自动调用 AI 识别截图中的分数
-          if (imageUrl) {
-            setAiRecognizing(true)
-            try {
-              console.log('开始 AI 识别截图:', { imageUrl })
-              const aiRes = await Network.request({
-                url: '/api/ai-recognize/screenshot',
-                method: 'POST',
-                data: { imageUrl }
-              })
-              console.log('AI 识别响应:', aiRes.data)
-              
-              // 解析响应
-              let aiData = aiRes.data
-              // Network.request 可能返回 { data: { code, data, msg } }
-              if (aiData?.code === 200 && aiData?.data) {
-                const result = aiData.data
-                setRecognitionResult(result)
-                // 自动填入科目和分数
-                setFormData(prev => ({
-                  ...prev,
-                  subjectCode: result.subjectCode || prev.subjectCode,
-                  score: result.score ? String(result.score) : prev.score
-                }))
-                Taro.showToast({ 
-                  title: `识别到 ${result.subjectCode} 成绩 ${result.score}分`, 
-                  icon: 'success' 
-                })
-              } else {
-                console.log('AI 识别未返回结果')
-                Taro.showToast({ title: '未识别到成绩，请手动填写', icon: 'none' })
-              }
-            } catch (err) {
-              console.error('AI 识别失败:', err)
-              Taro.showToast({ title: '识别失败，请手动填写', icon: 'none' })
-            } finally {
-              setAiRecognizing(false)
-            }
-          }
+          Taro.showToast({ title: '上传成功', icon: 'success' })
         } else {
           console.error('上传失败，响应内容:', parsedResult)
           Taro.showToast({ title: '上传失败', icon: 'error' })
@@ -299,8 +253,7 @@ const UploadPage = () => {
         setScreenshotKey('')
         setCustomMonth('')
         setIsCustomSeason(false)
-        setRecognitionResult(null)
-        setAiRecognizing(false)
+
       } else {
         Taro.showToast({ title: res.data?.msg || '提交失败', icon: 'error' })
       }
@@ -460,26 +413,8 @@ const UploadPage = () => {
                 <Text className="text-white">选择图片</Text>
               </Button>
               {screenshotKey && (
-                <View className="flex flex-col gap-1">
-                  <View className="flex flex-row items-center gap-1 p-2 bg-green-50 rounded">
-                    <Text className="block text-sm text-green-600">✓ 已上传</Text>
-                  </View>
-                  {aiRecognizing && (
-                    <View className="flex flex-row items-center gap-1 p-2 bg-blue-50 rounded">
-                      <Text className="block text-sm text-blue-600">🤖 AI 正在识别截图中的分数...</Text>
-                    </View>
-                  )}
-                  {recognitionResult && (
-                    <View className="flex flex-col gap-1 p-2 bg-purple-50 rounded">
-                      <Text className="block text-sm text-purple-600 font-medium">
-                        🤖 AI 识别结果：{recognitionResult.subjectCode} - {recognitionResult.score}分
-                        {recognitionResult.passStatus ? ' ✅ 通过' : ' ❌ 未通过'}
-                      </Text>
-                      <Text className="block text-xs text-purple-400">
-                        已将科目和分数自动填入，请核对后提交
-                      </Text>
-                    </View>
-                  )}
+                <View className="flex flex-row items-center gap-1 p-2 bg-green-50 rounded">
+                  <Text className="block text-sm text-green-600">✓ 已上传</Text>
                 </View>
               )}
             </View>
