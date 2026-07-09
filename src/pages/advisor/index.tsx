@@ -30,9 +30,8 @@ export default function AdvisorPage() {
     setLoading(true)
     try {
       const res = await Network.request({
-        url: '/api/advisor/check-password',
-        method: 'GET',
-        data: { name: name.trim() }
+        url: `/api/advisor/check-password?name=${encodeURIComponent(name.trim())}`,
+        method: 'GET'
       })
 
       if (res.data.code === 200 && res.data.data?.has_password) {
