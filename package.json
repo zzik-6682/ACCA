@@ -11,7 +11,7 @@
     "build:weapp": "taro build --type weapp",
     "build:web": "taro build --type h5",
     "dev": "pnpm exec concurrently --kill-others --kill-signal SIGKILL -n web,server -c blue,green \"pnpm dev:web\" \"pnpm dev:server\"",
-    "dev:server": "pnpm --filter server dev",
+    "dev:server": "SERVER_PORT=3000 pnpm --filter server dev",
     "dev:tt": "taro build --type tt --watch",
     "dev:weapp": "taro build --type weapp --watch",
     "dev:web": "taro build --type h5 --watch",

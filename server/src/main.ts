@@ -13,6 +13,12 @@ function parsePort(): number {
       return port;
     }
   }
+  // 开发模式下使用 SERVER_PORT（前端和 API 分开端口）
+  const serverPort = parseInt(process.env.SERVER_PORT || '', 10);
+  if (!isNaN(serverPort) && serverPort > 0 && serverPort < 65536) {
+    return serverPort;
+  }
+  // 生产模式下使用 DEPLOY_RUN_PORT（前后端合并单端口）
   const envPort = parseInt(process.env.DEPLOY_RUN_PORT || '', 10);
   if (!isNaN(envPort) && envPort > 0 && envPort < 65536) {
     return envPort;
