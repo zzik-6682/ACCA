@@ -40,6 +40,14 @@ async function bootstrap() {
   // 静态文件服务：生产环境 H5 构建产物
   const staticPath = path.resolve(__dirname, '../../dist-web');
   app.use(express.static(staticPath));
+  
+  // SPA fallback：非 API 路径返回 index.html
+  app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (req.path.startsWith('/api/')) {
+      return next();
+    }
+    res.sendFile(path.join(staticPath, 'index.html'));
+  });
 
   // 全局拦截器：统一将 POST 请求的 201 状态码改为 200
   app.useGlobalInterceptors(new HttpStatusInterceptor());
