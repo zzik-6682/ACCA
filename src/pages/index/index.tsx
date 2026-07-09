@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Upload, Users, Lock, UsersRound } from 'lucide-react-taro'
 import { useState } from 'react'
 
-const ADMIN_PASSWORD = 'acca2024' // 管理员密码
+const ADMIN_PASSWORD = 'acca520' // 管理员密码
 
 const IndexPage = () => {
   const [showAdminDialog, setShowAdminDialog] = useState(false)
