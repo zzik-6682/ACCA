@@ -241,10 +241,7 @@ const StatisticsPage = () => {
                   <Text className="block text-sm text-gray-600">平均分数</Text>
                   <Text className="block text-lg font-semibold text-gray-900">{statistics.avg_score.toFixed(1)}</Text>
                 </View>
-                <View className="flex flex-row justify-between items-center mt-2">
-                  <Text className="block text-sm text-gray-600">通过记录</Text>
-                  <Text className="block text-sm text-green-600">{statistics.passed_records} / {statistics.total_records}</Text>
-                </View>
+
               </View>
             </CardContent>
           </Card>
