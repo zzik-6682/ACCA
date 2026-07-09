@@ -1,4 +1,4 @@
-import { View, Text } from '@tarojs/components'
+import { View, Text, Navigator } from '@tarojs/components'
 import { Input } from '@/components/ui/input'
 import Taro from '@tarojs/taro'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,12 +20,6 @@ const IndexPage = () => {
 
   const handleMyRecords = () => {
     Taro.switchTab({ url: '/pages/my/index' })
-  }
-
-  const handleAdvisor = () => {
-    // 使用原生 location 跳转，避免 Taro.reLaunch/navigateTo 在 H5 下兼容问题
-    const base = window.location.origin + window.location.pathname
-    window.location.href = base + '#/pages/advisor/index'
   }
 
   const handleAdminClick = () => {
@@ -111,11 +105,13 @@ const IndexPage = () => {
                 <Text className="block text-lg font-semibold text-gray-900">学业导师</Text>
                 <Text className="block text-sm text-gray-500 mt-1">查看指导学生的考证情况</Text>
               </View>
-              <View className="flex-shrink-0">
-                <Button size="sm" onClick={handleAdvisor}>
-                  <Text className="text-sm">进入</Text>
-                </Button>
-              </View>
+              <Navigator
+                url="/pages/advisor/index"
+                className="flex-shrink-0 bg-blue-800 text-white rounded-md px-3 py-1"
+                hoverClass="opacity-80"
+              >
+                <Text className="text-sm">进入</Text>
+              </Navigator>
             </View>
           </CardContent>
         </Card>
