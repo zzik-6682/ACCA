@@ -10,8 +10,8 @@ else
     echo "⚠️ Warning: init_env.sh not found, skipping environment init."
 fi
 echo "Installing dependencies..."
-# 安装所有依赖（包含 Taro 核心和 React）
-pnpm install
+# 使用 --ignore-scripts 跳过原生模块编译（better-sqlite3 仅 drizzle-kit 需要，运行时不需要）
+pnpm install --ignore-scripts
 
 echo "Building the Taro project..."
 pnpm build

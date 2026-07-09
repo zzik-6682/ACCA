@@ -89,7 +89,7 @@ cleanup_previous_run() {
 # 2. 安装依赖
 # ---------------------------------------------------------
 echo "📦 Installing dependencies..."
-pnpm install
+pnpm install --ignore-scripts
 echo "✅ Dependencies installed successfully!"
 
 # ---------------------------------------------------------
