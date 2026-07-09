@@ -1,13 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { getSupabaseClient } from '@/storage/database/supabase-client'
 
-// 班级人数基数（用于计算通过率）
-const GRADE_TOTAL_COUNT = {
-  1: 31,  // 25级（大一）31人
-  2: 28,  // 24级（大二）28人
-  3: 17,  // 23级（大三）17人
-  4: 14,  // 22级（大四）14人
-}
+
 
 // 免考科目（默认全部通过）
 const EXEMPT_SUBJECTS = ['F1', 'F4', 'F6']
@@ -62,7 +56,6 @@ export class StatisticsService {
     console.log('获取统计数据, grade:', grade)
 
     const gradeNum = grade && grade !== 'all' ? parseInt(grade) : 0
-    const gradeTotalCount = gradeNum > 0 ? (GRADE_TOTAL_COUNT[gradeNum] || 0) : 0
 
     // 1. 获取学生信息（按年级筛选）
     let studentQuery = this.client
@@ -80,6 +73,7 @@ export class StatisticsService {
       throw new Error(`查询学生失败: ${studentError.message}`)
     }
 
+    const gradeTotalCount = (students || []).length
     const studentIds = (students || []).map(s => s.id)
     console.log('学生总数:', students?.length || 0)
 
@@ -182,18 +176,6 @@ export class StatisticsService {
         grade_rate: gradeTotalCount > 0 ? (s.passed / gradeTotalCount) * 100 : 0
       }))
       .sort((a, b) => b.passed - a.passed) // 按通过人数排序
-
-    // 6. 免考科目（F1, F4, F6）默认全部通过
-    for (const exemptCode of EXEMPT_SUBJECTS) {
-      subjectStats.unshift({
-        code: exemptCode,
-        name: SUBJECT_NAMES[exemptCode] || exemptCode,
-        passed: gradeTotalCount,  // 默认全班通过
-        total: gradeTotalCount,
-        rate: 100,  // 100% 通过
-        grade_rate: 100  // 100% 班级通过率
-      })
-    }
 
     return {
       grade: gradeNum,
