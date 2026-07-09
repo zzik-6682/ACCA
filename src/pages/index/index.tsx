@@ -23,11 +23,9 @@ const IndexPage = () => {
   }
 
   const handleAdvisor = () => {
-    console.log('[DEBUG] handleAdvisor called, navigating to advisor page')
-    Taro.reLaunch({ url: '/pages/advisor/index' }).catch(() => {
-      // fallback
-      window.location.href = window.location.origin + '/#/pages/advisor/index'
-    })
+    // 使用原生 location 跳转，避免 Taro.reLaunch/navigateTo 在 H5 下兼容问题
+    const base = window.location.origin + window.location.pathname
+    window.location.href = base + '#/pages/advisor/index'
   }
 
   const handleAdminClick = () => {
