@@ -21,7 +21,7 @@ export default function AdvisorLogin() {
         url: `/api/exam-records/advisor/check-password?name=${encodeURIComponent(advisorName)}`,
         method: 'GET'
       })
-      if (res.data?.has_password) {
+      if (res.data?.data?.has_password) {
         setStep('login')
       } else {
         setStep('setPassword')
@@ -52,8 +52,8 @@ export default function AdvisorLogin() {
         method: 'POST',
         data: { name: name.trim(), password }
       })
-      if (res.data?.name) {
-        Taro.setStorageSync('advisor_name', res.data.name)
+      if (res.data?.data?.name) {
+        Taro.setStorageSync('advisor_name', res.data.data.name)
         Taro.redirectTo({ url: '/pages/advisor/dashboard/index' })
       } else {
         setError(res.data?.msg || '登录失败')
