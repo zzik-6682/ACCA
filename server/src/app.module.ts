@@ -6,7 +6,6 @@ import { ExamRecordsModule } from '@/modules/exam-records/exam-records.module'
 import { StatisticsModule } from '@/modules/statistics/statistics.module'
 import { AiRecognizeModule } from '@/modules/ai-recognize/ai-recognize.module'
 import { ExportModule } from '@/modules/export/export.module'
-import { AdvisorModule } from '@/modules/advisor/advisor.module'
 
 @Module({
   imports: [
@@ -14,8 +13,7 @@ import { AdvisorModule } from '@/modules/advisor/advisor.module'
     ExamRecordsModule,
     StatisticsModule,
     AiRecognizeModule,
-    ExportModule,
-    AdvisorModule
+    ExportModule
   ],
   controllers: [AppController],
   providers: [AppService],

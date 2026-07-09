@@ -1,10 +1,10 @@
-import { View, Text, Navigator } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import { Input } from '@/components/ui/input'
 import Taro from '@tarojs/taro'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Upload, Users, Lock, GraduationCap } from 'lucide-react-taro'
+import { Upload, Users, Lock } from 'lucide-react-taro'
 import { useState } from 'react'
 
 const ADMIN_PASSWORD = 'acca2024' // 管理员密码
@@ -90,28 +90,6 @@ const IndexPage = () => {
                   <Text className="text-sm">查看</Text>
                 </Button>
               </View>
-            </View>
-          </CardContent>
-        </Card>
-
-        {/* 学业导师入口 */}
-        <Card className="shadow-sm">
-          <CardContent className="p-4">
-            <View className="flex flex-row items-center gap-4">
-              <View className="flex-shrink-0">
-                <GraduationCap size={32} color="#7C3AED" />
-              </View>
-              <View className="flex-1">
-                <Text className="block text-lg font-semibold text-gray-900">学业导师</Text>
-                <Text className="block text-sm text-gray-500 mt-1">查看指导学生的考证情况</Text>
-              </View>
-              <Navigator
-                url="/pages/advisor/index"
-                className="flex-shrink-0 bg-blue-800 text-white rounded-md px-3 py-1"
-                hoverClass="opacity-80"
-              >
-                <Text className="text-sm">进入</Text>
-              </Navigator>
             </View>
           </CardContent>
         </Card>

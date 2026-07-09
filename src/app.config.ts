@@ -3,8 +3,7 @@ export default defineAppConfig({
     'pages/index/index',
     'pages/upload/index',
     'pages/my/index',
-    'pages/statistics/index', // 管理员专用页面，不在 TabBar 中
-    'pages/advisor/index' // 学业导师专用页面
+    'pages/statistics/index' // 管理员专用页面，不在 TabBar 中
   ],
   window: {
     backgroundTextStyle: 'light',
