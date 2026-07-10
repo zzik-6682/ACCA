@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: acca-stats
+    runtime: node
+    buildCommand: pnpm render:build
+    startCommand: pnpm start
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
