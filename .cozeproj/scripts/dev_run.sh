@@ -88,22 +88,23 @@ if [ -n "${COZE_PROJECT_DOMAIN_DEFAULT:-}" ]; then
 fi
 
 # ---------------------------------------------------------
-# 5. 启动单进程 NestJS（同时服务前端 + API）
+# 5. 启动守护进程（自动监控 + 崩溃重启）
 # ---------------------------------------------------------
 cleanup_on_exit() {
-    echo "🛑 Shutting down..."
-    kill -- -$$ 2>/dev/null || true
+    echo "🛑 Shutting down daemon..."
+    pkill -f "daemon.sh" 2>/dev/null || true
+    pkill -f "node.*server/dist/main" 2>/dev/null || true
     rm -f "${PID_FILE}"
     exit 0
 }
 trap cleanup_on_exit EXIT INT TERM HUP
 
-echo "🚀 Starting NestJS server on port ${PORT} (API + static files)..."
+echo "🚀 Starting daemon on port ${PORT} (auto-restart, 24/7)..."
 cd "${COZE_WORKSPACE_PATH}"
 
-node server/dist/main.js -p "${PORT}" &
-DEV_PID=$!
-echo "${DEV_PID}" > "${PID_FILE}"
-echo "📝 Server started with PID: ${DEV_PID}"
+bash .cozeproj/scripts/daemon.sh &
+DAEMON_PID=$!
+echo "${DAEMON_PID}" > "${PID_FILE}"
+echo "📝 Daemon started with PID: ${DAEMON_PID}"
 
-wait "${DEV_PID}" || true
+wait "${DAEMON_PID}" || true
