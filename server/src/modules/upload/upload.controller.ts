@@ -1,61 +1,75 @@
 import { Controller, Post, UseInterceptors, UploadedFile, HttpCode } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { memoryStorage } from 'multer'
-import { S3Storage } from 'coze-coding-dev-sdk'
+import * as fs from 'fs'
+import * as path from 'path'
+
+// 本地存储目录（阿里云 ECS 用）
+const UPLOAD_DIR = path.resolve(process.cwd(), 'uploads')
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true })
+}
+
+// 尝试加载 TOS SDK（沙箱环境）
+let S3Storage: any = null
+try {
+  const sdk = require('coze-coding-dev-sdk')
+  S3Storage = sdk.S3Storage
+} catch {
+  console.log('TOS SDK 不可用，使用本地存储')
+}
 
 @Controller('upload')
 export class UploadController {
-  private storage: S3Storage
+  private storage: any
 
   constructor() {
-    this.storage = new S3Storage({
-      endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
-      accessKey: '',
-      secretKey: '',
-      bucketName: process.env.COZE_BUCKET_NAME,
-      region: 'cn-beijing',
-    })
+    if (S3Storage && process.env.COZE_BUCKET_ENDPOINT_URL) {
+      this.storage = new S3Storage({
+        endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
+        accessKey: '',
+        secretKey: '',
+        bucketName: process.env.COZE_BUCKET_NAME,
+        region: 'cn-beijing',
+      })
+    }
   }
 
   @Post('screenshot')
   @HttpCode(200)
   @UseInterceptors(FileInterceptor('file', {
     storage: memoryStorage(),
-    limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+    limits: { fileSize: 10 * 1024 * 1024 } // 10MB
   }))
   async uploadScreenshot(@UploadedFile() file: Express.Multer.File) {
-    console.log('上传文件信息:', {
-      originalname: file.originalname,
-      mimetype: file.mimetype,
-      size: file.size,
-      hasBuffer: !!file.buffer
-    })
-
     if (!file || !file.buffer) {
       return { code: 400, msg: '未收到文件', data: null }
     }
 
+    const ext = path.extname(file.originalname) || '.jpg'
+    const filename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`
+
     try {
-      // 上传到对象存储
-      const key = await this.storage.uploadFile({
-        fileContent: file.buffer,
-        fileName: `screenshots/${Date.now()}_${file.originalname}`,
-        contentType: file.mimetype
-      })
-
-      // 生成可访问的 URL（有效期7天）
-      const url = await this.storage.generatePresignedUrl({
-        key,
-        expireTime: 7 * 24 * 60 * 60 // 7天
-      })
-
-      console.log('上传成功:', { key, url })
-
-      return {
-        code: 200,
-        msg: '上传成功',
-        data: { key, url }
+      // 优先使用 TOS（沙箱环境）
+      if (this.storage) {
+        const key = await this.storage.uploadFile({
+          fileContent: file.buffer,
+          fileName: `screenshots/${filename}`,
+          contentType: file.mimetype
+        })
+        const url = await this.storage.generatePresignedUrl({
+          key,
+          expireTime: 7 * 24 * 60 * 60
+        })
+        return { code: 200, msg: '上传成功', data: { key, url } }
       }
+
+      // 本地存储（阿里云 ECS）
+      const filePath = path.join(UPLOAD_DIR, filename)
+      fs.writeFileSync(filePath, file.buffer)
+      const url = `/uploads/${filename}`
+      console.log('本地存储:', filePath, url)
+      return { code: 200, msg: '上传成功', data: { key: filename, url } }
     } catch (error) {
       console.error('上传失败:', error)
       return { code: 500, msg: '上传失败', data: null }

@@ -42,6 +42,9 @@ async function bootstrap() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+  // 静态文件服务：上传目录
+  app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
+  
   // 静态文件服务：生产环境 H5 构建产物
   const staticPath = path.resolve(__dirname, '../../dist-web');
   app.use(express.static(staticPath));
