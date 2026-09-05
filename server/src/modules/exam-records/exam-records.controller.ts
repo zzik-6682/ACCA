@@ -254,6 +254,30 @@ export class ExamRecordsController {
     }
   }
 
+  /**
+   * 验证学号和姓名是否匹配
+   */
+  @Post('verify')
+  @HttpCode(200)
+  async verifyStudent(@Body() body: { student_no: string; name: string }) {
+    const { student_no, name } = body || {}
+    
+    if (!student_no || !name) {
+      return {
+        code: 400,
+        msg: '请填写学号和姓名',
+        data: null
+      }
+    }
+    
+    const result = await this.examRecordsService.verifyStudent(student_no, name)
+    return {
+      code: result.valid ? 200 : 400,
+      msg: result.message,
+      data: result.student || null
+    }
+  }
+
   @Delete('fix-duplicates')
   @HttpCode(200)
   async fixDuplicates() {

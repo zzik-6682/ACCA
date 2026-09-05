@@ -52,12 +52,10 @@ export class ExamRecordsService {
   async createRecord(dto: CreateExamRecordDto) {
     console.log('创建考证记录:', dto)
 
-    // 1. 先查找或创建学生
-    let studentId: string
-
+    // 1. 查询学生（找不到则报错，禁止自动创建）
     const { data: existingStudent, error: studentError } = await this.client
       .from('students')
-      .select('id')
+      .select('id, name')
       .eq('student_no', dto.student_no)
       .maybeSingle()
 
@@ -66,30 +64,17 @@ export class ExamRecordsService {
       throw new Error(`查询学生失败: ${studentError.message}`)
     }
 
-    if (existingStudent) {
-      studentId = existingStudent.id
-      console.log('找到已有学生:', studentId)
-    } else {
-      // 创建新学生
-      const { data: newStudent, error: createError } = await this.client
-        .from('students')
-        .insert({
-          student_no: dto.student_no,
-          name: dto.name,
-          grade: dto.grade,
-          class_name: dto.class_name
-        })
-        .select('id')
-        .single()
-
-      if (createError) {
-        console.error('创建学生失败:', createError)
-        throw new Error(`创建学生失败: ${createError.message}`)
-      }
-
-      studentId = newStudent.id
-      console.log('创建新学生:', studentId)
+    if (!existingStudent) {
+      throw new Error('个人信息填写错误：未找到该学号的学生记录，请检查学号是否正确')
     }
+
+    // 2. 校验姓名是否匹配
+    if (existingStudent.name !== dto.name) {
+      throw new Error(`姓名与学号不匹配：该学号对应的姓名为「${existingStudent.name}」`)
+    }
+
+    const studentId = existingStudent.id
+    console.log('找到学生:', studentId, existingStudent.name)
 
     // 2. 创建考证记录
     const { data: record, error: recordError } = await this.client
@@ -391,6 +376,31 @@ export class ExamRecordsService {
     }
 
     return !!student.password
+  }
+
+  /**
+   * 验证学生学号和姓名是否匹配
+   */
+  async verifyStudent(student_no: string, name: string): Promise<{ valid: boolean; message: string; student?: any }> {
+    const { data: student, error } = await this.client
+      .from('students')
+      .select('id, student_no, name, grade, class_name')
+      .eq('student_no', student_no)
+      .maybeSingle()
+
+    if (error) {
+      return { valid: false, message: '查询失败，请重试' }
+    }
+
+    if (!student) {
+      return { valid: false, message: '学号不存在，请检查学号是否正确' }
+    }
+
+    if (student.name !== name) {
+      return { valid: false, message: `学号 ${student_no} 对应的姓名是 ${student.name}，与填写的 ${name} 不符` }
+    }
+
+    return { valid: true, message: '验证通过', student }
   }
 
   /**

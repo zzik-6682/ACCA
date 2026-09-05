@@ -58,7 +58,49 @@ const UploadPage = () => {
   const [screenshotKey, setScreenshotKey] = useState('')
   const [customMonth, setCustomMonth] = useState('')
   const [isCustomSeason, setIsCustomSeason] = useState(false)
+  const [verifyStatus, setVerifyStatus] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle')
+  const [verifyMessage, setVerifyMessage] = useState('')
+  let verifyTimer: any = null
 
+  // 验证学号和姓名
+  const verifyStudentInfo = async (studentNo: string, name: string) => {
+    if (!studentNo || !name) {
+      setVerifyStatus('idle')
+      setVerifyMessage('')
+      return
+    }
+
+    // 防抖
+    if (verifyTimer) clearTimeout(verifyTimer)
+    
+    verifyTimer = setTimeout(async () => {
+      setVerifyStatus('verifying')
+      try {
+        const res = await Network.request({
+          url: '/api/exam-records/verify',
+          method: 'POST',
+          data: { student_no: studentNo, name }
+        })
+        
+        const result = res.data
+        if (result?.code === 200) {
+          setVerifyStatus('success')
+          setVerifyMessage(result.msg || '信息验证通过')
+          // 自动填充班级（如果还没选的话）
+          const student = result.data
+          if (student && student.class_name && !formData.className) {
+            setFormData(prev => ({ ...prev, className: student.class_name }))
+          }
+        } else {
+          setVerifyStatus('error')
+          setVerifyMessage(result?.msg || '学号或姓名不匹配')
+        }
+      } catch (e) {
+        setVerifyStatus('error')
+        setVerifyMessage('验证失败，请检查信息')
+      }
+    }, 500)
+  }
 
   // 获取当前选择的科目信息
   const selectedSubject = ACCA_SUBJECTS.find(s => s.code === formData.subjectCode)
@@ -69,6 +111,12 @@ const UploadPage = () => {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+    
+    // 学号或姓名变化时触发验证
+    if (field === 'studentNo' || field === 'name') {
+      const nextData = { ...formData, [field]: value }
+      verifyStudentInfo(nextData.studentNo, nextData.name)
+    }
   }
 
   const handleChooseImage = async () => {
@@ -195,6 +243,12 @@ const UploadPage = () => {
       Taro.showToast({ title: '请填写完整的学生信息', icon: 'none' })
       return
     }
+
+    // 必须先验证学号姓名匹配
+    if (verifyStatus !== 'success') {
+      Taro.showToast({ title: '请先完成学生信息验证', icon: 'none' })
+      return
+    }
     
     if (!formData.subjectCode || !formData.examSeason) {
       Taro.showToast({ title: '请选择科目和考季', icon: 'none' })
@@ -299,6 +353,14 @@ const UploadPage = () => {
               />
             </View>
           </View>
+
+          {verifyMessage && (
+            <Text className={`block text-sm ${
+              verifyStatus === 'success' ? 'text-emerald-600' : 'text-red-500'
+            }`}>
+              {verifyStatus === 'success' ? '✓ ' : '⚠ '}{verifyMessage}
+            </Text>
+          )}
           
           <View>
             <Label className="text-sm text-gray-600 mb-1">班级 *</Label>
