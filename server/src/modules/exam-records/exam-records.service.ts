@@ -450,15 +450,22 @@ export class ExamRecordsService {
       throw new Error(`查询记录失败: ${recordError.message}`)
     }
 
-    // 3. 组装数据并生成截图URL
+    // 3. 组装数据并生成截图URL（本地文件直接返回路径，TOS文件生成预签名）
+    const useLocalStorage = !!process.env.LOCAL_UPLOAD_DIR
     const formattedData = await Promise.all((records || []).map(async (record: any) => {
       let screenshot_url: string | null = null
       if (record.screenshot_key) {
         try {
-          screenshot_url = await this.storage.generatePresignedUrl({
-            key: record.screenshot_key,
-            expireTime: 86400 * 7 // 7天有效期
-          })
+          if (useLocalStorage) {
+            // 本地存储：直接拼接访问路径
+            screenshot_url = `/uploads/${record.screenshot_key}`
+          } else {
+            // TOS对象存储：生成预签名URL
+            screenshot_url = await this.storage.generatePresignedUrl({
+              key: record.screenshot_key,
+              expireTime: 86400 * 7 // 7天有效期
+            })
+          }
         } catch (e) {
           console.error('生成截图URL失败:', e)
         }
