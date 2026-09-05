@@ -1,13 +1,11 @@
 import { Injectable } from '@nestjs/common'
-import { getSupabaseClient } from '@/storage/database/supabase-client'
+import { eq, inArray } from 'drizzle-orm'
+import { getDb } from '@/storage/database/drizzle-client'
+import { students, examRecords } from '@/storage/database/shared/schema'
 
-
-
-// 免考科目（默认全部通过）
 const EXEMPT_SUBJECTS = ['F1', 'F4', 'F6']
 
-// 科目名称映射
-const SUBJECT_NAMES = {
+const SUBJECT_NAMES: Record<string, string> = {
   'F1': '商业与技术 Business and Technology (BT)',
   'F2': '管理会计 Management Accounting (MA)',
   'F3': '财务会计 Financial Accounting (FA)',
@@ -20,7 +18,7 @@ const SUBJECT_NAMES = {
 }
 
 export interface StudentDetail {
-  id: number
+  id: string
   student_no: string
   name: string
   grade: number
@@ -30,7 +28,7 @@ export interface StudentDetail {
   exam_records: {
     subject_code: string
     subject_name: string
-    score: number
+    score: number | null
     pass_status: boolean
     exam_type: string
   }[]
@@ -38,8 +36,8 @@ export interface StudentDetail {
 
 export interface StatisticsData {
   grade: number
-  grade_total_count: number  // 班级总人数（基数）
-  uploaded_students: number  // 已上传成绩的学生数
+  grade_total_count: number
+  uploaded_students: number
   total_records: number
   passed_records: number
   pass_rate: number
@@ -50,66 +48,53 @@ export interface StatisticsData {
 
 @Injectable()
 export class StatisticsService {
-  private client = getSupabaseClient()
+  private db = getDb()
 
   async getStatistics(grade?: string): Promise<StatisticsData> {
     console.log('获取统计数据, grade:', grade)
 
     const gradeNum = grade && grade !== 'all' ? parseInt(grade) : 0
 
-    // 1. 获取学生信息（按年级筛选）
-    let studentQuery = this.client
-      .from('students')
-      .select('id, student_no, name, grade, class_name')
+    // 1. 获取学生
+    let studentList = await this.db.query.students.findMany({
+      columns: { id: true, student_no: true, name: true, grade: true, class_name: true },
+    })
 
     if (grade && grade !== 'all') {
-      studentQuery = studentQuery.eq('grade', parseInt(grade))
+      const g = parseInt(grade)
+      studentList = studentList.filter(s => s.grade === g)
     }
 
-    const { data: students, error: studentError } = await studentQuery
+    const gradeTotalCount = studentList.length
+    const studentIds = studentList.map(s => s.id)
+    console.log('学生总数:', gradeTotalCount)
 
-    if (studentError) {
-      console.error('查询学生失败:', studentError)
-      throw new Error(`查询学生失败: ${studentError.message}`)
-    }
+    // 2. 获取考证记录
+    const records = studentIds.length > 0
+      ? await this.db.query.examRecords.findMany({
+          where: inArray(examRecords.student_id, studentIds),
+          columns: {
+            id: true, student_id: true, subject_code: true, subject_name: true,
+            score: true, pass_status: true, exam_type: true,
+          },
+        })
+      : []
 
-    const gradeTotalCount = (students || []).length
-    const studentIds = (students || []).map(s => s.id)
-    console.log('学生总数:', students?.length || 0)
+    console.log('记录总数:', records.length)
 
-    // 2. 获取考证记录（包含 exam_type）
-    let recordQuery = this.client
-      .from('exam_records')
-      .select('id, student_id, subject_code, subject_name, score, pass_status, exam_type')
-
-    if (studentIds.length > 0) {
-      recordQuery = recordQuery.in('student_id', studentIds)
-    }
-
-    const { data: records, error: recordError } = await recordQuery
-
-    if (recordError) {
-      console.error('查询记录失败:', recordError)
-      throw new Error(`查询记录失败: ${recordError.message}`)
-    }
-
-    console.log('记录总数:', records?.length || 0)
-
-    // 3. 构建学生详情列表（免考科目默认加入通过列表）
+    // 3. 构建学生详情
     const studentDetails: StudentDetail[] = []
-    for (const student of (students || [])) {
-      const studentRecords = (records || [])
+    for (const student of studentList) {
+      const studentRecords = records
         .filter(r => r.student_id === student.id)
         .map(r => ({
           subject_code: r.subject_code,
           subject_name: r.subject_name,
           score: r.score,
           pass_status: r.pass_status,
-          exam_type: r.exam_type || 'global_exam'
+          exam_type: r.exam_type || 'global_exam',
         }))
       
-      // 免考科目默认通过（不需要上传成绩）
-      // 注意：如果成绩记录中也有免考科目（如F1/F4/F6），要去重避免重复统计
       const exemptSet = new Set(EXEMPT_SUBJECTS)
       const passedFromRecords = studentRecords
         .filter(r => r.pass_status && !exemptSet.has(r.subject_code))
@@ -124,45 +109,40 @@ export class StatisticsService {
         class_name: student.class_name,
         passed_subjects: passedSubjects,
         total_passed: passedSubjects.length,
-        exam_records: studentRecords
+        exam_records: studentRecords,
       })
     }
 
-    // 按通过科目数排序（从多到少）
     studentDetails.sort((a, b) => b.total_passed - a.total_passed)
 
-    // 4. 计算统计数据
-    const totalRecords = records?.length || 0
-    const passedRecords = (records || []).filter(r => r.pass_status).length
+    // 4. 计算统计
+    const totalRecords = records.length
+    const passedRecords = records.filter(r => r.pass_status).length
     const passRate = totalRecords > 0 ? (passedRecords / totalRecords) * 100 : 0
 
-    // 计算平均分
-    const scoredRecords = (records || []).filter(r => r.score !== null)
+    const scoredRecords = records.filter(r => r.score !== null)
     const avgScore = scoredRecords.length > 0 
       ? scoredRecords.reduce((sum, r) => sum + (r.score || 0), 0) / scoredRecords.length 
       : 0
 
-    // 5. 按科目统计（跳过免考科目 F1/F4/F6，免考科目在后面统一处理）
+    // 5. 按科目统计
     const subjectMap = new Map<string, { code: string; name: string; passed: number; total: number }>()
     
-    for (const record of (records || [])) {
+    for (const record of records) {
       const code = record.subject_code
-      // 跳过免考科目，避免重复统计
       if (EXEMPT_SUBJECTS.includes(code)) continue
       
       if (!subjectMap.has(code)) {
         subjectMap.set(code, {
-          code: code,
+          code,
           name: record.subject_name,
           passed: 0,
-          total: 0
+          total: 0,
         })
       }
       const stat = subjectMap.get(code)!
       stat.total++
-      if (record.pass_status) {
-        stat.passed++
-      }
+      if (record.pass_status) stat.passed++
     }
 
     const subjectStats = Array.from(subjectMap.values())
@@ -172,21 +152,20 @@ export class StatisticsService {
         passed: s.passed,
         total: s.total,
         rate: s.total > 0 ? (s.passed / s.total) * 100 : 0,
-        // 使用班级人数基数计算该科目的年级通过率
-        grade_rate: gradeTotalCount > 0 ? (s.passed / gradeTotalCount) * 100 : 0
+        grade_rate: gradeTotalCount > 0 ? (s.passed / gradeTotalCount) * 100 : 0,
       }))
-      .sort((a, b) => b.passed - a.passed) // 按通过人数排序
+      .sort((a, b) => b.passed - a.passed)
 
     return {
       grade: gradeNum,
       grade_total_count: gradeTotalCount,
-      uploaded_students: students?.length || 0,
+      uploaded_students: studentList.length,
       total_records: totalRecords,
       passed_records: passedRecords,
       pass_rate: passRate,
       avg_score: avgScore,
       subject_stats: subjectStats,
-      student_details: studentDetails
+      student_details: studentDetails,
     }
   }
 }

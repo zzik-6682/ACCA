@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common'
-import { getSupabaseClient } from '@/storage/database/supabase-client'
+import { eq, like, or, inArray, desc, asc, count, and } from 'drizzle-orm'
+import { getDb } from '@/storage/database/drizzle-client'
+import { students, examRecords, advisors } from '@/storage/database/shared/schema'
 import { S3Storage } from 'coze-coding-dev-sdk'
 
 interface CreateExamRecordDto {
@@ -11,7 +13,7 @@ interface CreateExamRecordDto {
   subject_name: string
   score?: number
   exam_season: string
-  exam_type?: string // global_exam 全球考, final_exam 期末考试（免考科目）
+  exam_type?: string
   pass_status: boolean
   screenshot_key?: string
   notes?: string
@@ -29,7 +31,7 @@ export interface ExamRecord {
   screenshot_key: string | null
   screenshot_url?: string | null
   notes: string | null
-  created_at: string
+  created_at: string | Date
   students: {
     name: string
     student_no: string
@@ -40,7 +42,7 @@ export interface ExamRecord {
 
 @Injectable()
 export class ExamRecordsService {
-  private client = getSupabaseClient()
+  private db = getDb()
   private storage = new S3Storage({
     endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
     accessKey: '',
@@ -52,17 +54,11 @@ export class ExamRecordsService {
   async createRecord(dto: CreateExamRecordDto) {
     console.log('创建考证记录:', dto)
 
-    // 1. 查询学生（找不到则报错，禁止自动创建）
-    const { data: existingStudent, error: studentError } = await this.client
-      .from('students')
-      .select('id, name')
-      .eq('student_no', dto.student_no)
-      .maybeSingle()
-
-    if (studentError) {
-      console.error('查询学生失败:', studentError)
-      throw new Error(`查询学生失败: ${studentError.message}`)
-    }
+    // 1. 查询学生
+    const existingStudent = await this.db.query.students.findFirst({
+      where: eq(students.student_no, dto.student_no),
+      columns: { id: true, name: true },
+    })
 
     if (!existingStudent) {
       throw new Error('个人信息填写错误：未找到该学号的学生记录，请检查学号是否正确')
@@ -76,71 +72,57 @@ export class ExamRecordsService {
     const studentId = existingStudent.id
     console.log('找到学生:', studentId, existingStudent.name)
 
-    // 2. 创建考证记录
-    const { data: record, error: recordError } = await this.client
-      .from('exam_records')
-      .insert({
+    // 3. 创建考证记录
+    const [record] = await this.db
+      .insert(examRecords)
+      .values({
         student_id: studentId,
         subject_code: dto.subject_code,
         subject_name: dto.subject_name,
         score: dto.score ?? null,
         exam_season: dto.exam_season,
-        exam_type: dto.exam_type ?? 'global_exam', // 默认全球考，免考科目传 final_exam
+        exam_type: dto.exam_type ?? 'global_exam',
         pass_status: dto.pass_status,
         screenshot_key: dto.screenshot_key ?? null,
-        notes: dto.notes ?? null
+        notes: dto.notes ?? null,
       })
-      .select()
-      .single()
+      .returning()
 
-    if (recordError) {
-      console.error('创建记录失败:', recordError)
-      throw new Error(`创建记录失败: ${recordError.message}`)
-    }
-
-    console.log('记录创建成功:', record)
+    console.log('记录创建成功:', record.id)
     return record
   }
 
-  async batchImportStudents(students: any[]) {
-    console.log('批量导入学生:', students.length)
+  async batchImportStudents(studentList: any[]) {
+    console.log('批量导入学生:', studentList.length)
     
     const importedStudents: any[] = []
     const errors: string[] = []
 
-    for (const student of students) {
+    for (const student of studentList) {
       try {
-        // 检查学生是否已存在
-        const { data: existing } = await this.client
-          .from('students')
-          .select('id')
-          .eq('student_no', student.student_no)
-          .single()
+        const existing = await this.db.query.students.findFirst({
+          where: eq(students.student_no, student.student_no),
+          columns: { id: true },
+        })
 
         if (existing) {
           console.log(`学生 ${student.student_no} 已存在，跳过`)
           continue
         }
 
-        // 创建学生
-        const { data: newStudent, error } = await this.client
-          .from('students')
-          .insert({
+        const [newStudent] = await this.db
+          .insert(students)
+          .values({
             student_no: student.student_no,
             name: student.name,
             grade: student.grade,
             class_name: student.class_name,
-            password: null
+            password: null,
           })
-          .select()
-          .single()
+          .returning()
 
-        if (error) {
-          errors.push(`${student.student_no}: ${error.message}`)
-        } else {
-          importedStudents.push(newStudent)
-        }
-      } catch (err) {
+        importedStudents.push(newStudent)
+      } catch (err: any) {
         errors.push(`${student.student_no}: ${err.message}`)
       }
     }
@@ -149,102 +131,87 @@ export class ExamRecordsService {
     return {
       imported: importedStudents.length,
       errors: errors.length,
-      details: importedStudents
+      details: importedStudents,
     }
   }
 
   async getMyRecords(keyword: string): Promise<ExamRecord[]> {
     console.log('查询考证记录:', keyword)
 
-    // 1. 先查询学生（根据学号或姓名）
-    const { data: students, error: studentError } = await this.client
-      .from('students')
-      .select('id, name, student_no, grade, class_name')
-      .or(`student_no.ilike.%${keyword}%,name.ilike.%${keyword}%`)
+    const matchedStudents = await this.db.query.students.findMany({
+      where: or(
+        like(students.student_no, `%${keyword}%`),
+        like(students.name, `%${keyword}%`),
+      ),
+      columns: { id: true, name: true, student_no: true, grade: true, class_name: true },
+    })
 
-    if (studentError) {
-      console.error('查询学生失败:', studentError)
-      throw new Error(`查询学生失败: ${studentError.message}`)
-    }
-
-    if (!students || students.length === 0) {
+    if (matchedStudents.length === 0) {
       console.log('未找到匹配的学生')
       return []
     }
 
-    console.log('找到学生:', students.length)
+    console.log('找到学生:', matchedStudents.length)
 
-    // 2. 根据学生ID查询考证记录
-    const studentIds = students.map(s => s.id)
-    
-    const { data: records, error: recordError } = await this.client
-      .from('exam_records')
-      .select(`
-        id,
-        student_id,
-        subject_code,
-        subject_name,
-        score,
-        pass_status,
-        exam_season,
-        screenshot_key,
-        notes,
-        created_at
-      `)
-      .in('student_id', studentIds)
-      .order('created_at', { ascending: false })
+    const studentIds = matchedStudents.map(s => s.id)
+    const records = await this.db.query.examRecords.findMany({
+      where: inArray(examRecords.student_id, studentIds),
+      orderBy: [desc(examRecords.created_at)],
+      columns: {
+        id: true, student_id: true, subject_code: true, subject_name: true,
+        score: true, pass_status: true, exam_season: true, screenshot_key: true,
+        notes: true, created_at: true,
+      },
+    })
 
-    if (recordError) {
-      console.error('查询记录失败:', recordError)
-      throw new Error(`查询记录失败: ${recordError.message}`)
-    }
-
-    // 3. 组装数据（将学生信息附加到记录）
     const studentMap = new Map()
-    for (const student of students) {
-      studentMap.set(student.id, student)
+    for (const s of matchedStudents) {
+      studentMap.set(s.id, {
+        name: s.name,
+        student_no: s.student_no,
+        grade: s.grade,
+        class_name: s.class_name,
+      })
     }
 
-    const formattedData = (records || []).map((record: any) => ({
-      ...record,
-      students: studentMap.get(record.student_id)
+    const formattedData = records.map(record => ({
+      id: record.id,
+      student_id: record.student_id,
+      subject_code: record.subject_code,
+      subject_name: record.subject_name,
+      score: record.score,
+      pass_status: record.pass_status,
+      exam_season: record.exam_season,
+      exam_type: null,
+      screenshot_key: record.screenshot_key,
+      notes: record.notes,
+      created_at: record.created_at,
+      students: studentMap.get(record.student_id),
     }))
     
     console.log('查询结果:', formattedData.length, '条记录')
     return formattedData as ExamRecord[]
   }
 
-  async batchImport(students: any[]) {
-    console.log('开始批量导入:', students.length, '名学生')
+  async batchImport(studentList: any[]) {
+    console.log('开始批量导入:', studentList.length, '名学生')
     
     let successCount = 0
     let failCount = 0
     const errors: string[] = []
     
-    for (const student of students) {
+    for (const student of studentList) {
       try {
-        // 先查找学生
-        const { data: existingStudent } = await this.client
-          .from('students')
-          .select('id')
-          .eq('student_no', student.student_no)
-          .maybeSingle()
+        const existingStudent = await this.db.query.students.findFirst({
+          where: eq(students.student_no, student.student_no),
+          columns: { id: true },
+        })
         
-        // 如果学生已存在，先删除该学生的所有旧考试记录
         if (existingStudent) {
-          const { error: deleteError } = await this.client
-            .from('exam_records')
-            .delete()
-            .eq('student_id', existingStudent.id)
-          
-          if (deleteError) {
-            console.error('删除旧记录失败:', student.name, deleteError)
-          } else {
-            console.log(`已删除 ${student.name} 的旧记录`)
-          }
+          await this.db.delete(examRecords).where(eq(examRecords.student_id, existingStudent.id))
+          console.log(`已删除 ${student.name} 的旧记录`)
         }
         
-        // 重新导入学生的考试记录
         for (const examRecord of student.exam_records) {
           await this.createRecord({
             student_no: student.student_no,
@@ -257,11 +224,11 @@ export class ExamRecordsService {
             exam_season: examRecord.exam_season,
             exam_type: examRecord.exam_type,
             pass_status: examRecord.pass_status,
-            notes: examRecord.notes
+            notes: examRecord.notes,
           })
           successCount++
         }
-      } catch (error) {
+      } catch (error: any) {
         failCount++
         errors.push(`${student.name}: ${error.message}`)
         console.error('导入学生失败:', student.name, error)
@@ -269,87 +236,42 @@ export class ExamRecordsService {
     }
     
     return {
-      total_students: students.length,
+      total_students: studentList.length,
       success_records: successCount,
       fail_records: failCount,
-      errors: errors.length > 0 ? errors : undefined
+      errors: errors.length > 0 ? errors : undefined,
     }
   }
 
-  /**
-   * 设置密码 - 验证学号和姓名后设置密码
-   */
   async setPassword(student_no: string, name: string, password: string): Promise<{ success: boolean; message: string }> {
     console.log('设置密码:', student_no, name)
 
-    // 1. 先验证学号和姓名是否匹配
-    const { data: student, error } = await this.client
-      .from('students')
-      .select('id, name, password')
-      .eq('student_no', student_no)
-      .maybeSingle()
+    const student = await this.db.query.students.findFirst({
+      where: eq(students.student_no, student_no),
+      columns: { id: true, name: true, password: true },
+    })
 
-    if (error) {
-      console.error('查询学生失败:', error)
-      return { success: false, message: '查询失败' }
-    }
+    if (!student) return { success: false, message: '学号不存在' }
+    if (student.name !== name) return { success: false, message: '姓名与学号不匹配' }
+    if (student.password) return { success: false, message: '已设置密码，如需修改请联系管理员' }
 
-    if (!student) {
-      return { success: false, message: '学号不存在' }
-    }
-
-    if (student.name !== name) {
-      return { success: false, message: '姓名与学号不匹配' }
-    }
-
-    // 2. 检查是否已设置密码
-    if (student.password) {
-      return { success: false, message: '已设置密码，如需修改请联系管理员' }
-    }
-
-    // 3. 设置密码
-    const { error: updateError } = await this.client
-      .from('students')
-      .update({ password: password })
-      .eq('id', student.id)
-
-    if (updateError) {
-      console.error('设置密码失败:', updateError)
-      return { success: false, message: '设置密码失败' }
-    }
+    await this.db.update(students).set({ password }).where(eq(students.id, student.id))
 
     console.log('密码设置成功:', student_no)
     return { success: true, message: '密码设置成功' }
   }
 
-  /**
-   * 登录 - 验证学号和密码
-   */
   async login(student_no: string, password: string): Promise<{ success: boolean; message: string; name?: string; grade?: number; class_name?: string }> {
     console.log('登录验证:', student_no)
 
-    const { data: student, error } = await this.client
-      .from('students')
-      .select('id, name, grade, class_name, password')
-      .eq('student_no', student_no)
-      .maybeSingle()
+    const student = await this.db.query.students.findFirst({
+      where: eq(students.student_no, student_no),
+      columns: { id: true, name: true, grade: true, class_name: true, password: true },
+    })
 
-    if (error) {
-      console.error('查询学生失败:', error)
-      return { success: false, message: '查询失败' }
-    }
-
-    if (!student) {
-      return { success: false, message: '学号不存在' }
-    }
-
-    if (!student.password) {
-      return { success: false, message: '请先设置密码' }
-    }
-
-    if (student.password !== password) {
-      return { success: false, message: '密码错误' }
-    }
+    if (!student) return { success: false, message: '学号不存在' }
+    if (!student.password) return { success: false, message: '请先设置密码' }
+    if (student.password !== password) return { success: false, message: '密码错误' }
 
     console.log('登录成功:', student_no, student.name)
     return { 
@@ -357,40 +279,23 @@ export class ExamRecordsService {
       message: '登录成功',
       name: student.name,
       grade: student.grade,
-      class_name: student.class_name
+      class_name: student.class_name,
     }
   }
 
-  /**
-   * 检查是否已设置密码
-   */
   async hasPassword(student_no: string): Promise<boolean> {
-    const { data: student, error } = await this.client
-      .from('students')
-      .select('password')
-      .eq('student_no', student_no)
-      .maybeSingle()
-
-    if (error || !student) {
-      return false
-    }
-
-    return !!student.password
+    const student = await this.db.query.students.findFirst({
+      where: eq(students.student_no, student_no),
+      columns: { password: true },
+    })
+    return !!student?.password
   }
 
-  /**
-   * 验证学生学号和姓名是否匹配
-   */
   async verifyStudent(student_no: string, name: string): Promise<{ valid: boolean; message: string; student?: any }> {
-    const { data: student, error } = await this.client
-      .from('students')
-      .select('id, student_no, name, grade, class_name')
-      .eq('student_no', student_no)
-      .maybeSingle()
-
-    if (error) {
-      return { valid: false, message: '查询失败，请重试' }
-    }
+    const student = await this.db.query.students.findFirst({
+      where: eq(students.student_no, student_no),
+      columns: { id: true, student_no: true, name: true, grade: true, class_name: true },
+    })
 
     if (!student) {
       return { valid: false, message: '学号不存在，请检查学号是否正确' }
@@ -400,70 +305,60 @@ export class ExamRecordsService {
       return { valid: false, message: `学号 ${student_no} 对应的姓名是 ${student.name}，与填写的 ${name} 不符` }
     }
 
-    return { valid: true, message: '验证通过', student }
+    return {
+      valid: true,
+      message: '验证通过',
+      student: {
+        id: student.id,
+        student_no: student.student_no,
+        name: student.name,
+        grade: student.grade,
+        class_name: student.class_name,
+      },
+    }
   }
 
-  /**
-   * 根据学号查询记录
-   */
   async getRecordsByStudentNo(student_no: string): Promise<ExamRecord[]> {
     console.log('按学号查询记录:', student_no)
 
-    // 1. 先查询学生
-    const { data: student, error: studentError } = await this.client
-      .from('students')
-      .select('id, name, student_no, grade, class_name')
-      .eq('student_no', student_no)
-      .maybeSingle()
-
-    if (studentError) {
-      console.error('查询学生失败:', studentError)
-      throw new Error(`查询学生失败: ${studentError.message}`)
-    }
+    const student = await this.db.query.students.findFirst({
+      where: eq(students.student_no, student_no),
+      columns: { id: true, name: true, student_no: true, grade: true, class_name: true },
+    })
 
     if (!student) {
       console.log('未找到学生')
       return []
     }
 
-    // 2. 查询考证记录
-    const { data: records, error: recordError } = await this.client
-      .from('exam_records')
-      .select(`
-        id,
-        student_id,
-        subject_code,
-        subject_name,
-        score,
-        pass_status,
-        exam_season,
-        exam_type,
-        screenshot_key,
-        notes,
-        created_at
-      `)
-      .eq('student_id', student.id)
-      .order('created_at', { ascending: false })
+    const records = await this.db.query.examRecords.findMany({
+      where: eq(examRecords.student_id, student.id),
+      orderBy: [desc(examRecords.created_at)],
+      columns: {
+        id: true, student_id: true, subject_code: true, subject_name: true,
+        score: true, pass_status: true, exam_season: true, exam_type: true,
+        screenshot_key: true, notes: true, created_at: true,
+      },
+    })
 
-    if (recordError) {
-      console.error('查询记录失败:', recordError)
-      throw new Error(`查询记录失败: ${recordError.message}`)
+    const useLocalStorage = !!process.env.LOCAL_UPLOAD_DIR
+    const studentInfo = {
+      name: student.name,
+      student_no: student.student_no,
+      grade: student.grade,
+      class_name: student.class_name,
     }
 
-    // 3. 组装数据并生成截图URL（本地文件直接返回路径，TOS文件生成预签名）
-    const useLocalStorage = !!process.env.LOCAL_UPLOAD_DIR
-    const formattedData = await Promise.all((records || []).map(async (record: any) => {
+    const formattedData = await Promise.all(records.map(async (record) => {
       let screenshot_url: string | null = null
       if (record.screenshot_key) {
         try {
           if (useLocalStorage) {
-            // 本地存储：直接拼接访问路径
             screenshot_url = `/uploads/${record.screenshot_key}`
           } else {
-            // TOS对象存储：生成预签名URL
             screenshot_url = await this.storage.generatePresignedUrl({
               key: record.screenshot_key,
-              expireTime: 86400 * 7 // 7天有效期
+              expireTime: 86400 * 7,
             })
           }
         } catch (e) {
@@ -471,9 +366,19 @@ export class ExamRecordsService {
         }
       }
       return {
-        ...record,
+        id: record.id,
+        student_id: record.student_id,
+        subject_code: record.subject_code,
+        subject_name: record.subject_name,
+        score: record.score,
+        pass_status: record.pass_status,
+        exam_season: record.exam_season,
+        exam_type: record.exam_type,
+        screenshot_key: record.screenshot_key,
         screenshot_url,
-        students: student
+        notes: record.notes,
+        created_at: record.created_at,
+        students: studentInfo,
       }
     }))
     
@@ -482,14 +387,12 @@ export class ExamRecordsService {
   }
 
   async fixDuplicates() {
-    const { data: allStudents, error } = await this.client
-      .from('students')
-      .select('id, student_no, name, grade, class_name')
-      .order('name')
+    const allStudents = await this.db.query.students.findMany({
+      orderBy: [asc(students.name)],
+      columns: { id: true, student_no: true, name: true, grade: true, class_name: true },
+    })
 
-    if (error) return { code: 500, msg: '查询学生失败: ' + error.message, data: null }
-
-    const groups: Record<string, any[]> = {}
+    const groups: Record<string, typeof allStudents> = {}
     for (const s of allStudents) {
       const key = `${s.name}|${s.grade}|${s.class_name}`
       if (!groups[key]) groups[key] = []
@@ -499,174 +402,137 @@ export class ExamRecordsService {
     let fixedCount = 0
     let movedRecords = 0
 
-    for (const [key, students] of Object.entries(groups)) {
-      if (students.length <= 1) continue
+    for (const [, groupStudents] of Object.entries(groups)) {
+      if (groupStudents.length <= 1) continue
 
-      students.sort((a, b) => {
+      const sorted = [...groupStudents].sort((a, b) => {
         if (a.student_no.length !== b.student_no.length)
           return b.student_no.length - a.student_no.length
         return b.student_no.localeCompare(a.student_no)
       })
 
-      const correct = students[0]
-      const badStudents = students.slice(1)
+      const correct = sorted[0]
+      const badStudents = sorted.slice(1)
 
       for (const bad of badStudents) {
-        const { data: records } = await this.client
-          .from('exam_records')
-          .select('id')
-          .eq('student_id', bad.id)
+        const badRecords = await this.db.query.examRecords.findMany({
+          where: eq(examRecords.student_id, bad.id),
+          columns: { id: true },
+        })
 
-        if (records && records.length > 0) {
-          const { error: updateErr } = await this.client
-            .from('exam_records')
-            .update({ student_id: correct.id })
-            .eq('student_id', bad.id)
-          if (!updateErr) movedRecords += records.length
+        if (badRecords.length > 0) {
+          const [updated] = await this.db
+            .update(examRecords)
+            .set({ student_id: correct.id })
+            .where(eq(examRecords.student_id, bad.id))
+          if (updated) movedRecords += badRecords.length
         }
 
-        const { error: delErr } = await this.client
-          .from('students')
-          .delete()
-          .eq('id', bad.id)
-
-        if (!delErr) fixedCount++
+        await this.db.delete(students).where(eq(students.id, bad.id))
+        fixedCount++
       }
     }
 
     return {
       code: 200,
       msg: '修复完成',
-      data: { deleted_students: fixedCount, moved_records: movedRecords }
+      data: { deleted_students: fixedCount, moved_records: movedRecords },
     }
   }
 
-  /**
-   * 导师登录 - 验证姓名和密码
-   */
   async advisorLogin(advisorName: string, password: string): Promise<{ success: boolean; message: string; student_count?: number }> {
-    const { data: advisor, error } = await this.client
-      .from('advisors')
-      .select('name, password_hash')
-      .eq('name', advisorName)
-      .maybeSingle()
+    const advisor = await this.db.query.advisors.findFirst({
+      where: eq(advisors.name, advisorName),
+      columns: { name: true, password_hash: true },
+    })
 
-    if (error || !advisor) {
-      return { success: false, message: '导师姓名不存在' }
-    }
+    if (!advisor) return { success: false, message: '导师姓名不存在' }
+    if (!advisor.password_hash) return { success: false, message: '请先设置密码' }
+    if (advisor.password_hash !== password) return { success: false, message: '密码错误' }
 
-    if (!advisor.password_hash) {
-      return { success: false, message: '请先设置密码' }
-    }
+    const result = await this.db
+      .select({ count: count() })
+      .from(students)
+      .where(eq(students.advisor_name, advisorName))
 
-    if (advisor.password_hash !== password) {
-      return { success: false, message: '密码错误' }
-    }
-
-    const { count } = await this.client
-      .from('students')
-      .select('*', { count: 'exact', head: true })
-      .eq('advisor_name', advisorName)
-
-    return { success: true, message: '登录成功', student_count: count || 0 }
+    return { success: true, message: '登录成功', student_count: Number(result[0]?.count || 0) }
   }
 
-  /**
-   * 检查导师是否已设置密码
-   */
   async advisorHasPassword(advisorName: string): Promise<boolean> {
-    const { data: advisor, error } = await this.client
-      .from('advisors')
-      .select('password_hash')
-      .eq('name', advisorName)
-      .maybeSingle()
-
-    if (error || !advisor) return false
-    return !!advisor.password_hash
+    const advisor = await this.db.query.advisors.findFirst({
+      where: eq(advisors.name, advisorName),
+      columns: { password_hash: true },
+    })
+    return !!advisor?.password_hash
   }
 
-  /**
-   * 导师设置密码
-   */
   async advisorSetPassword(advisorName: string, password: string): Promise<{ success: boolean; message: string }> {
-    const { data: advisor, error } = await this.client
-      .from('advisors')
-      .select('name, password_hash')
-      .eq('name', advisorName)
-      .maybeSingle()
+    const advisor = await this.db.query.advisors.findFirst({
+      where: eq(advisors.name, advisorName),
+      columns: { name: true, password_hash: true },
+    })
 
-    if (error || !advisor) {
-      return { success: false, message: '导师姓名不存在' }
-    }
+    if (!advisor) return { success: false, message: '导师姓名不存在' }
+    if (advisor.password_hash) return { success: false, message: '已设置过密码，如需修改请联系管理员' }
 
-    if (advisor.password_hash) {
-      return { success: false, message: '已设置过密码，如需修改请联系管理员' }
-    }
-
-    const { error: updateError } = await this.client
-      .from('advisors')
-      .update({ password_hash: password })
-      .eq('name', advisorName)
-
-    if (updateError) {
-      return { success: false, message: '设置密码失败' }
-    }
-
+    await this.db.update(advisors).set({ password_hash: password }).where(eq(advisors.name, advisorName))
     return { success: true, message: '密码设置成功' }
   }
 
-  /**
-   * 获取导师的学生列表（含成绩）
-   */
   async getAdvisorStudents(advisorName: string) {
-    const { data: students, error } = await this.client
-      .from('students')
-      .select('id, student_no, name, grade, class_name, advisor_name')
-      .eq('advisor_name', advisorName)
-      .order('name')
+    const advisorStudents = await this.db.query.students.findMany({
+      where: eq(students.advisor_name, advisorName),
+      orderBy: [asc(students.name)],
+      columns: { id: true, student_no: true, name: true, grade: true, class_name: true, advisor_name: true },
+    })
 
-    if (error) throw new Error(`查询失败: ${error.message}`)
-    if (!students || students.length === 0) return []
+    if (advisorStudents.length === 0) return []
 
     const result: any[] = []
-    for (const student of students) {
-      const { data: records } = await this.client
-        .from('exam_records')
-        .select('subject_code, subject_name, score, pass_status, exam_season, exam_type')
-        .eq('student_id', student.id)
-        .order('subject_code')
+    for (const student of advisorStudents) {
+      const records = await this.db.query.examRecords.findMany({
+        where: eq(examRecords.student_id, student.id),
+        orderBy: [asc(examRecords.subject_code)],
+        columns: {
+          subject_code: true, subject_name: true, score: true,
+          pass_status: true, exam_season: true, exam_type: true,
+        },
+      })
 
-      // Calculate exempt subjects
       const exemptSubjects = ['F1', 'F4', 'F6']
-      const examRecords = records || []
-      const passedSubjects = new Set(examRecords.filter(r => r.pass_status).map(r => r.subject_code))
-      const exemptCount = exemptSubjects.filter(s => !passedSubjects.has(s)).length
+      const passedSet = new Set(records.filter(r => r.pass_status).map(r => r.subject_code))
+      const exemptCount = exemptSubjects.filter(s => !passedSet.has(s)).length
 
       result.push({
         student_no: student.student_no,
         name: student.name,
         grade: student.grade,
         class_name: student.class_name,
-        total_passed: passedSubjects.size + exemptCount,
-        exam_records: examRecords
+        total_passed: passedSet.size + exemptCount,
+        exam_records: records.map(r => ({
+          subject_code: r.subject_code,
+          subject_name: r.subject_name,
+          score: r.score,
+          pass_status: r.pass_status,
+          exam_season: r.exam_season,
+          exam_type: r.exam_type,
+        })),
       })
     }
 
     return result
   }
 
-  // 删除学生（同时删成绩）
   async deleteStudent(studentNo: string) {
-    const { data: student } = await this.client
-      .from('students')
-      .select('id')
-      .eq('student_no', studentNo)
-      .single()
+    const student = await this.db.query.students.findFirst({
+      where: eq(students.student_no, studentNo),
+      columns: { id: true },
+    })
 
     if (!student) return { code: 404, msg: '学生不存在' }
 
-    await this.client.from('exam_records').delete().eq('student_id', student.id)
-    await this.client.from('students').delete().eq('id', student.id)
+    await this.db.delete(examRecords).where(eq(examRecords.student_id, student.id))
+    await this.db.delete(students).where(eq(students.id, student.id))
 
     return { code: 200, msg: '删除成功' }
   }

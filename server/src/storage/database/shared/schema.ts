@@ -16,6 +16,10 @@ export const students = pgTable(
     name: varchar("name", { length: 50 }).notNull(),
     grade: integer("grade").notNull(), // 1-4 表示大一到大四
     class_name: varchar("class_name", { length: 20 }).notNull(),
+    gender: varchar("gender", { length: 10 }),
+    major: varchar("major", { length: 100 }),
+    advisor_name: varchar("advisor_name", { length: 100 }),
+    email: varchar("email", { length: 200 }),
     phone: varchar("phone", { length: 20 }),
     password: varchar("password", { length: 100 }), // 学生自己设置的密码
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -70,7 +74,25 @@ export const examSeasons = pgTable(
   ]
 );
 
+// 导师表
+export const advisors = pgTable(
+  "advisors",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    name: varchar("name", { length: 100 }).notNull().unique(),
+    email: varchar("email", { length: 200 }),
+    phone: varchar("phone", { length: 50 }),
+    password_hash: varchar("password_hash", { length: 255 }),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("advisors_name_idx").on(table.name),
+  ]
+);
+
 // 类型导出
 export type Student = typeof students.$inferSelect;
 export type ExamRecord = typeof examRecords.$inferSelect;
 export type ExamSeason = typeof examSeasons.$inferSelect;
+export type Advisor = typeof advisors.$inferSelect;
