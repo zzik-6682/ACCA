@@ -314,11 +314,17 @@ const UploadPage = () => {
       Taro.showToast({ title: '请填写分数', icon: 'none' })
       return
     }
+
+    const scoreNum = parseInt(formData.score, 10)
+    if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > 100) {
+      Taro.showToast({ title: '分数必须在0-100之间', icon: 'none' })
+      return
+    }
     
     setLoading(true)
     
     try {
-      const score = parseInt(formData.score)
+      const score = scoreNum
       const res = await Network.request({
         url: '/api/exam-records',
         method: 'POST',
@@ -533,9 +539,14 @@ const UploadPage = () => {
             <View className="bg-gray-50 rounded-lg px-3 py-2">
               <Input 
                 className="w-full bg-transparent"
-                placeholder="请输入分数（50分及格）"
+                type="number"
+                maxlength={3}
+                placeholder="请输入分数（0-100，50分及格）"
                 value={formData.score}
-                onInput={(e) => handleInputChange('score', e.detail.value)}
+                onInput={(e) => {
+                  const v = e.detail.value.replace(/[^0-9]/g, '').slice(0, 3)
+                  handleInputChange('score', v)
+                }}
               />
             </View>
           </View>
