@@ -299,6 +299,12 @@ const UploadPage = () => {
       return
     }
     
+    // 校验考季格式必须为 YYYY-MM
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(formData.examSeason)) {
+      Taro.showToast({ title: '考季格式不正确（如 2026-09）', icon: 'none' })
+      return
+    }
+    
     if (!screenshotKey) {
       Taro.showToast({ title: '请上传成绩截图', icon: 'none' })
       return
@@ -479,33 +485,45 @@ const UploadPage = () => {
                 <View className="flex flex-row items-center gap-2 mt-1">
                   <View className="bg-gray-50 rounded-lg px-3 py-2" style={{ width: '80px' }}>
                     <Input 
+                      type="number"
                       className="w-full bg-transparent"
                       placeholder="年份"
+                      maxlength={4}
                       value={customYear}
                       onInput={(e) => {
-                        const year = e.detail.value
-                        setCustomYear(year)
+                        const raw = e.detail.value.replace(/\D/g, '').slice(0, 4)
+                        setCustomYear(raw)
                         const month = customMonth.padStart(2, '0')
-                        if (month && month !== '00') {
-                          setFormData(prev => ({ ...prev, examSeason: `${year}-${month}` }))
+                        if (/^\d{4}$/.test(raw) && customMonth >= '1' && customMonth <= '12') {
+                          setFormData(prev => ({ ...prev, examSeason: `${raw}-${month}` }))
                         }
                       }}
                     />
                   </View>
                   <View className="bg-gray-50 rounded-lg px-3 py-2 flex-1">
                     <Input 
+                      type="number"
                       className="w-full bg-transparent"
-                      placeholder="月份"
+                      placeholder="月份（1-12）"
+                      maxlength={2}
                       value={customMonth}
                       onInput={(e) => {
-                        setCustomMonth(e.detail.value)
-                        const month = e.detail.value.padStart(2, '0')
-                        setFormData(prev => ({ ...prev, examSeason: `${customYear}-${month}` }))
+                        const raw = e.detail.value.replace(/\D/g, '').slice(0, 2)
+                        setCustomMonth(raw)
+                        const monthNum = parseInt(raw, 10)
+                        if (/^\d{4}$/.test(customYear) && monthNum >= 1 && monthNum <= 12) {
+                          setFormData(prev => ({ ...prev, examSeason: `${customYear}-${raw.padStart(2, '0')}` }))
+                        }
                       }}
                     />
                   </View>
                 </View>
-                <Text className="block text-sm text-gray-500 mt-1">→ {customYear}-{customMonth.padStart(2, '0')}</Text>
+                {customYear && customMonth && !(/^\d{4}$/.test(customYear) && parseInt(customMonth, 10) >= 1 && parseInt(customMonth, 10) <= 12) && (
+                  <Text className="block text-xs text-red-500 mt-1">请输入正确的年份和月份（月份1-12）</Text>
+                )}
+                {/^\d{4}$/.test(customYear) && customMonth >= '1' && customMonth <= '12' && (
+                  <Text className="block text-sm text-gray-500 mt-1">→ {customYear}-{customMonth.padStart(2, '0')}</Text>
+                )}
               </View>
             )}
           </View>
