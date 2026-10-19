@@ -79,7 +79,7 @@ const getExamSeasons = () => {
     }
   }
   
-  seasons.push({ value: 'custom', label: '自定义月份...' })
+  seasons.push({ value: 'custom', label: '随时机考（自定义月份）' })
   return seasons
 }
 
@@ -481,7 +481,7 @@ const UploadPage = () => {
             
             {isCustomSeason && (
               <View className="mt-2">
-                <Label className="text-xs text-gray-500">输入年份和月份（如：2026年9月）</Label>
+                <Label className="text-xs text-gray-500">随时机考：请输入实际考试年月（如：2026年9月）</Label>
                 <View className="flex flex-row items-center gap-2 mt-1">
                   <View className="bg-gray-50 rounded-lg px-3 py-2" style={{ width: '80px' }}>
                     <Input 
