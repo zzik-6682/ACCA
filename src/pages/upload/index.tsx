@@ -68,7 +68,7 @@ const getExamSeasons = () => {
   // 生成最近6个考季（从当前往前推）
   for (let i = 0; i < 6; i++) {
     const value = `${currentYear}-${String(currentMonth).padStart(2, '0')}`
-    const label = `${currentYear}年${currentMonth}月考季${i === 0 ? '（最新）' : ''}`
+    const label = `${currentYear}年${currentMonth}月考季`
     seasons.push({ value, label })
     
     // 往前推一个考季（3个月前）
