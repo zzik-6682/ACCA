@@ -316,7 +316,7 @@ const UploadPage = () => {
     }
 
     const scoreNum = parseInt(formData.score, 10)
-    if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > 100) {
+    if (Number.isNaN(scoreNum) || scoreNum < 0 || scoreNum > 100) {
       Taro.showToast({ title: '分数必须在0-100之间', icon: 'none' })
       return
     }
@@ -411,9 +411,9 @@ const UploadPage = () => {
           </View>
 
           {verifyMessage && (
-            <Text className={`block text-sm ${
-              verifyStatus === 'success' ? 'text-emerald-600' : 'text-red-500'
-            }`}>
+            <Text
+              className={`block text-sm ${verifyStatus === 'success' ? 'text-emerald-600' : 'text-red-500'}`}
+            >
               {verifyStatus === 'success' ? '✓ ' : '⚠ '}{verifyMessage}
             </Text>
           )}
