@@ -32,16 +32,58 @@ const CLASSES = [
   { value: '国会2201', label: '国会2201', grade: 4 },
 ]
 
-// 最近考季（历史数据已导入，之后的数据需手动输入月份）
-const EXAM_SEASONS = [
-  { value: '2026-09', label: '2026年9月考季（最新）' },
-  { value: '2026-06', label: '2026年6月考季' },
-  { value: '2026-03', label: '2026年3月考季' },
-  { value: '2025-12', label: '2025年12月考季' },
-  { value: '2025-09', label: '2025年9月考季' },
-  { value: '2025-06', label: '2025年6月考季' },
-  { value: 'custom', label: '自定义月份...' },
-]
+// 自动生成考季列表（从当前考季往前推6个）
+const getExamSeasons = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1 // 1-12
+  
+  // ACCA考季月份：3月、6月、9月、12月
+  const seasonMonths = [3, 6, 9, 12]
+  const seasons: { value: string; label: string }[] = []
+  
+  // 找到当前或最近的考季
+  let currentYear = year
+  let currentMonth = month
+  
+  // 如果当前月份已经过了12月考季，从明年3月开始
+  if (month > 9) {
+    currentYear = year + 1
+    currentMonth = 3
+  } else {
+    // 找到当前月份对应的考季
+    for (const m of seasonMonths) {
+      if (m >= month) {
+        currentMonth = m
+        break
+      }
+    }
+    // 如果当前月份已经过了12月，从明年3月开始
+    if (month > 12) {
+      currentYear = year + 1
+      currentMonth = 3
+    }
+  }
+  
+  // 生成最近6个考季（从当前往前推）
+  for (let i = 0; i < 6; i++) {
+    const value = `${currentYear}-${String(currentMonth).padStart(2, '0')}`
+    const label = `${currentYear}年${currentMonth}月考季${i === 0 ? '（最新）' : ''}`
+    seasons.push({ value, label })
+    
+    // 往前推一个考季（3个月前）
+    currentMonth -= 3
+    if (currentMonth < 3) {
+      currentMonth = 12
+      currentYear -= 1
+    }
+  }
+  
+  seasons.push({ value: 'custom', label: '自定义月份...' })
+  return seasons
+}
+
+const EXAM_SEASONS = getExamSeasons()
 
 const UploadPage = () => {
   const [formData, setFormData] = useState({
