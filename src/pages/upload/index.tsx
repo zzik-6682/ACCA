@@ -34,7 +34,8 @@ const CLASSES = [
 
 // 最近考季（历史数据已导入，之后的数据需手动输入月份）
 const EXAM_SEASONS = [
-  { value: '2026-06', label: '2026年6月考季（最新）' },
+  { value: '2026-09', label: '2026年9月考季（最新）' },
+  { value: '2026-06', label: '2026年6月考季' },
   { value: '2026-03', label: '2026年3月考季' },
   { value: '2025-12', label: '2025年12月考季' },
   { value: '2025-09', label: '2025年9月考季' },
@@ -57,6 +58,7 @@ const UploadPage = () => {
   const [loading, setLoading] = useState(false)
   const [screenshotKey, setScreenshotKey] = useState('')
   const [customMonth, setCustomMonth] = useState('')
+  const [customYear, setCustomYear] = useState('2026')
   const [isCustomSeason, setIsCustomSeason] = useState(false)
   const [verifyStatus, setVerifyStatus] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle')
   const [verifyMessage, setVerifyMessage] = useState('')
@@ -431,8 +433,23 @@ const UploadPage = () => {
             
             {isCustomSeason && (
               <View className="mt-2">
-                <Label className="text-xs text-gray-500">输入通过月份（如：06表示6月）</Label>
+                <Label className="text-xs text-gray-500">输入年份和月份（如：2026年9月）</Label>
                 <View className="flex flex-row items-center gap-2 mt-1">
+                  <View className="bg-gray-50 rounded-lg px-3 py-2" style={{ width: '80px' }}>
+                    <Input 
+                      className="w-full bg-transparent"
+                      placeholder="年份"
+                      value={customYear}
+                      onInput={(e) => {
+                        const year = e.detail.value
+                        setCustomYear(year)
+                        const month = customMonth.padStart(2, '0')
+                        if (month && month !== '00') {
+                          setFormData(prev => ({ ...prev, examSeason: `${year}-${month}` }))
+                        }
+                      }}
+                    />
+                  </View>
                   <View className="bg-gray-50 rounded-lg px-3 py-2 flex-1">
                     <Input 
                       className="w-full bg-transparent"
@@ -441,12 +458,12 @@ const UploadPage = () => {
                       onInput={(e) => {
                         setCustomMonth(e.detail.value)
                         const month = e.detail.value.padStart(2, '0')
-                        setFormData(prev => ({ ...prev, examSeason: `2026-${month}` }))
+                        setFormData(prev => ({ ...prev, examSeason: `${customYear}-${month}` }))
                       }}
                     />
                   </View>
-                  <Text className="block text-sm text-gray-500">→ 2026-{customMonth.padStart(2, '0')}</Text>
                 </View>
+                <Text className="block text-sm text-gray-500 mt-1">→ {customYear}-{customMonth.padStart(2, '0')}</Text>
               </View>
             )}
           </View>
