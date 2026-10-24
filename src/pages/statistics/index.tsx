@@ -123,7 +123,10 @@ const StatisticsPage = () => {
         Taro.showToast({ title: '正在导出...', icon: 'loading' })
         
         // H5 端使用 fetch 获取文件 blob，然后创建下载链接
-        const response = await fetch(downloadUrl)
+        const fullUrl = downloadUrl.startsWith('http')
+          ? downloadUrl
+          : `${PROJECT_DOMAIN}${downloadUrl}`
+        const response = await fetch(fullUrl)
         if (!response.ok) {
           throw new Error('下载失败')
         }

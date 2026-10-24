@@ -341,7 +341,6 @@ export class ExamRecordsService {
       },
     })
 
-    const useLocalStorage = !!process.env.LOCAL_UPLOAD_DIR
     const studentInfo = {
       name: student.name,
       student_no: student.student_no,
@@ -350,21 +349,7 @@ export class ExamRecordsService {
     }
 
     const formattedData = await Promise.all(records.map(async (record) => {
-      let screenshot_url: string | null = null
-      if (record.screenshot_key) {
-        try {
-          if (useLocalStorage) {
-            screenshot_url = `/uploads/${record.screenshot_key}`
-          } else {
-            screenshot_url = await this.storage.generatePresignedUrl({
-              key: record.screenshot_key,
-              expireTime: 86400 * 7,
-            })
-          }
-        } catch (e) {
-          console.error('生成截图URL失败:', e)
-        }
-      }
+      const screenshot_url = await this.resolveScreenshotUrl(record.screenshot_key)
       return {
         id: record.id,
         student_id: record.student_id,
@@ -479,6 +464,22 @@ export class ExamRecordsService {
     return { success: true, message: '密码设置成功' }
   }
 
+  private async resolveScreenshotUrl(key: string | null | undefined): Promise<string | null> {
+    if (!key) return null
+    try {
+      if (process.env.LOCAL_UPLOAD_DIR) {
+        return `/uploads/${key}`
+      }
+      return await this.storage.generatePresignedUrl({
+        key,
+        expireTime: 86400 * 7,
+      })
+    } catch (e) {
+      console.error('生成截图URL失败:', e)
+      return null
+    }
+  }
+
   async getAdvisorStudents(advisorName: string) {
     const advisorStudents = await this.db.query.students.findMany({
       where: eq(students.advisor_name, advisorName),
@@ -496,6 +497,7 @@ export class ExamRecordsService {
         columns: {
           subject_code: true, subject_name: true, score: true,
           pass_status: true, exam_season: true, exam_type: true,
+          screenshot_key: true, notes: true,
         },
       })
 
@@ -503,20 +505,27 @@ export class ExamRecordsService {
       const passedSet = new Set(records.filter(r => r.pass_status).map(r => r.subject_code))
       const exemptCount = exemptSubjects.filter(s => !passedSet.has(s)).length
 
-      result.push({
-        student_no: student.student_no,
-        name: student.name,
-        grade: student.grade,
-        class_name: student.class_name,
-        total_passed: passedSet.size + exemptCount,
-        exam_records: records.map(r => ({
+      const examRecordsWithUrl = await Promise.all(
+        records.map(async (r) => ({
           subject_code: r.subject_code,
           subject_name: r.subject_name,
           score: r.score,
           pass_status: r.pass_status,
           exam_season: r.exam_season,
           exam_type: r.exam_type,
-        })),
+          screenshot_key: r.screenshot_key,
+          screenshot_url: await this.resolveScreenshotUrl(r.screenshot_key),
+          notes: r.notes,
+        }))
+      )
+
+      result.push({
+        student_no: student.student_no,
+        name: student.name,
+        grade: student.grade,
+        class_name: student.class_name,
+        total_passed: passedSet.size + exemptCount,
+        exam_records: examRecordsWithUrl,
       })
     }
 

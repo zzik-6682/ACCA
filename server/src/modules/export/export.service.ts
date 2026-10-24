@@ -16,14 +16,25 @@ export class ExportService {
   private db = getDb()
 
   async generateExcel(): Promise<Buffer> {
-    // 查询所有学生
+    // 查询所有学生（只取导出需要的列，避免目标库缺少扩展列导致查询失败）
     const allStudents = await this.db.query.students.findMany({
       orderBy: [asc(students.grade), asc(students.student_no)],
+      columns: {
+        id: true,
+        student_no: true,
+        name: true,
+        grade: true,
+      },
     })
 
-    // 查询所有通过的考试记录
+    // 查询所有通过的考试记录（只取导出需要的列）
     const allRecords = await this.db.query.examRecords.findMany({
       where: eq(examRecords.pass_status, true),
+      columns: {
+        student_id: true,
+        subject_code: true,
+        score: true,
+      },
     })
 
     // 按年级分组

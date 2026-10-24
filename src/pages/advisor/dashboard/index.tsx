@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { View, Text, ScrollView } from '@tarojs/components'
+import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { Network } from '@/network'
 import { Card, CardContent } from '@/components/ui/card'
@@ -14,6 +14,15 @@ interface ExamRecord {
   pass_status: boolean
   exam_season: string
   exam_type: string
+  screenshot_key?: string | null
+  screenshot_url?: string | null
+  notes?: string | null
+}
+
+const resolveImageUrl = (url?: string | null): string => {
+  if (!url) return ''
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  return `${PROJECT_DOMAIN}${url}`
 }
 
 interface StudentInfo {
@@ -59,6 +68,19 @@ export default function AdvisorDashboard() {
   const handleLogout = () => {
     Taro.removeStorageSync('advisor_name')
     Taro.redirectTo({ url: '/pages/advisor/login/index' })
+  }
+
+  // 汇总当前学生所有已上传的截图，供单张点击时左右滑动查看
+  const previewScreenshot = (record: ExamRecord, allRecords: ExamRecord[]) => {
+    const fullUrl = resolveImageUrl(record.screenshot_url)
+    if (!fullUrl) return
+    const allUrls = allRecords
+      .map((r) => resolveImageUrl(r.screenshot_url))
+      .filter(Boolean)
+    Taro.previewImage({
+      urls: allUrls,
+      current: fullUrl,
+    })
   }
 
   const totalPassed = students.reduce((sum, s) => sum + s.total_passed, 0)
@@ -163,19 +185,42 @@ export default function AdvisorDashboard() {
                       {student.exam_records.map((record, idx) => (
                         <View
                           key={idx}
-                          className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg"
+                          className="py-2 px-3 bg-gray-50 rounded-lg"
                         >
-                          <View>
-                            <Text className="block text-sm font-medium text-gray-700">
-                              {record.subject_code} {record.subject_name}
-                            </Text>
-                            <Text className="block text-xs text-gray-400">
-                              {record.exam_season}
-                            </Text>
+                          <View className="flex items-center justify-between">
+                            <View className="flex-1 min-w-0">
+                              <Text className="block text-sm font-medium text-gray-700">
+                                {record.subject_code} {record.subject_name}
+                              </Text>
+                              <Text className="block text-xs text-gray-400">
+                                {record.exam_season}
+                              </Text>
+                            </View>
+                            <Badge variant={record.pass_status ? 'default' : 'destructive'}>
+                              {record.score ?? '-'}分
+                            </Badge>
                           </View>
-                          <Badge variant={record.pass_status ? 'default' : 'destructive'}>
-                            {record.score ?? '-'}分
-                          </Badge>
+
+                          {/* 成绩截图 */}
+                          {record.screenshot_url && (
+                            <View
+                              className="relative mt-2 w-28 h-20 rounded-md overflow-hidden bg-gray-200"
+                              onClick={() =>
+                                previewScreenshot(record, student.exam_records)
+                              }
+                            >
+                              <Image
+                                src={resolveImageUrl(record.screenshot_url)}
+                                className="w-full h-full"
+                                mode="aspectFill"
+                              />
+                              <View className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 px-1 py-1">
+                                <Text className="block text-white text-xs text-center">
+                                  查看凭证
+                                </Text>
+                              </View>
+                            </View>
+                          )}
                         </View>
                       ))}
                     </View>
