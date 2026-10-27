@@ -119,13 +119,9 @@ const StatisticsPage = () => {
           Taro.showToast({ title: '下载失败，请检查密码', icon: 'none' })
         }
       } else {
-        // H5 端：直接触发浏览器下载
-        Taro.showToast({ title: '正在导出...', icon: 'loading' })
-        
-        // 构建完整 URL
+        // H5 端：构建完整 URL
         let fullUrl = downloadUrl
         if (!downloadUrl.startsWith('http')) {
-          // 优先使用 PROJECT_DOMAIN，否则使用当前页面域名
           const domain = typeof PROJECT_DOMAIN !== 'undefined' && PROJECT_DOMAIN
             ? PROJECT_DOMAIN
             : window.location.origin
@@ -134,34 +130,42 @@ const StatisticsPage = () => {
         
         console.log('导出 URL:', fullUrl)
         
-        // 方式1：尝试 fetch + blob（现代浏览器）
-        try {
-          const response = await fetch(fullUrl)
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`)
-          }
-          
-          const blob = await response.blob()
-          const blobUrl = URL.createObjectURL(blob)
-          const link = document.createElement('a')
-          link.href = blobUrl
-          link.download = 'ACCA考试成绩统计.xlsx'
-          link.style.display = 'none'
-          document.body.appendChild(link)
-          link.click()
-          
-          // 延迟清理，确保下载开始
-          setTimeout(() => {
-            document.body.removeChild(link)
-            URL.revokeObjectURL(blobUrl)
-          }, 1000)
-          
-          Taro.showToast({ title: '导出成功', icon: 'success' })
-        } catch (fetchError) {
-          console.warn('fetch 方式失败，尝试直接下载:', fetchError)
-          // 方式2：直接打开下载链接（降级方案）
-          window.location.href = fullUrl
+        // 检测是否为移动端
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+        
+        if (isMobile) {
+          // 移动端：直接跳转下载（后端设置了 Content-Disposition: attachment）
+          // 用隐藏 iframe 避免页面跳转
+          const iframe = document.createElement('iframe')
+          iframe.style.display = 'none'
+          iframe.src = fullUrl
+          document.body.appendChild(iframe)
+          setTimeout(() => document.body.removeChild(iframe), 5000)
           Taro.showToast({ title: '正在下载...', icon: 'success' })
+        } else {
+          // PC 端：fetch + blob 方式（体验更好，不离开当前页面）
+          try {
+            Taro.showToast({ title: '正在导出...', icon: 'loading' })
+            const response = await fetch(fullUrl)
+            if (!response.ok) throw new Error(`HTTP ${response.status}`)
+            
+            const blob = await response.blob()
+            const blobUrl = URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = blobUrl
+            link.download = 'ACCA考试成绩统计.xlsx'
+            link.style.display = 'none'
+            document.body.appendChild(link)
+            link.click()
+            setTimeout(() => {
+              document.body.removeChild(link)
+              URL.revokeObjectURL(blobUrl)
+            }, 1000)
+            Taro.showToast({ title: '导出成功', icon: 'success' })
+          } catch (fetchError) {
+            console.warn('fetch 失败，降级为直接下载:', fetchError)
+            window.location.href = fullUrl
+          }
         }
       }
     } catch (error) {
