@@ -9,6 +9,7 @@ export class ExportController {
   @Get('excel')
   async exportExcel(
     @Query('password') password: string,
+    @Query('grade') grade: string,
     @Res() res: Response
   ) {
     // 验证管理员密码
@@ -19,11 +20,20 @@ export class ExportController {
     }
 
     try {
-      const buffer = await this.exportService.generateExcel()
+      const buffer = await this.exportService.generateExcel(grade)
+      
+      // 根据年级生成文件名
+      const gradeNames: Record<string, string> = {
+        '1': '2025级',
+        '2': '2024级',
+        '3': '2023级',
+        '4': '2022级',
+      }
+      const gradeLabel = grade && grade !== 'all' ? (gradeNames[grade] || `${grade}级`) : '全年级'
+      const filename = encodeURIComponent(`ACCA考试成绩统计_${gradeLabel}.xlsx`)
       
       // 设置响应头（文件名需要编码以支持中文）
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-      const filename = encodeURIComponent('ACCA考试成绩统计.xlsx')
       res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${filename}`)
       
       // 发送文件

@@ -94,7 +94,7 @@ const StatisticsPage = () => {
     
     const env = Taro.getEnv()
     const isMiniApp = env === Taro.ENV_TYPE.WEAPP || env === Taro.ENV_TYPE.TT
-    const downloadUrl = `/api/export/excel?password=${encodeURIComponent(exportPassword)}`
+    const downloadUrl = `/api/export/excel?password=${encodeURIComponent(exportPassword)}&grade=${selectedGrade}`
     
     try {
       if (isMiniApp) {

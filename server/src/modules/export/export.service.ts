@@ -15,8 +15,10 @@ export class ExportService {
   
   private db = getDb()
 
-  async generateExcel(): Promise<Buffer> {
-    // 查询所有学生（只取导出需要的列，避免目标库缺少扩展列导致查询失败）
+  async generateExcel(grade?: string): Promise<Buffer> {
+    const gradeNum = grade && grade !== 'all' ? parseInt(grade) : null
+
+    // 查询学生（根据年级筛选）
     const allStudents = await this.db.query.students.findMany({
       orderBy: [asc(students.grade), asc(students.student_no)],
       columns: {
@@ -26,6 +28,11 @@ export class ExportService {
         grade: true,
       },
     })
+
+    // 按年级筛选
+    const filteredStudents = gradeNum 
+      ? allStudents.filter(s => s.grade === gradeNum)
+      : allStudents
 
     // 查询所有通过的考试记录（只取导出需要的列）
     const allRecords = await this.db.query.examRecords.findMany({
@@ -38,8 +45,8 @@ export class ExportService {
     })
 
     // 按年级分组
-    const gradeGroups: Record<number, typeof allStudents> = {}
-    for (const student of allStudents) {
+    const gradeGroups: Record<number, typeof filteredStudents> = {}
+    for (const student of filteredStudents) {
       const grade = student.grade ?? 0
       if (!gradeGroups[grade]) gradeGroups[grade] = []
       gradeGroups[grade].push(student)
