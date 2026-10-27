@@ -347,7 +347,19 @@ const UploadPage = () => {
       console.log('提交响应:', res.data)
       
       if (res.data?.code === 200) {
-        Taro.showToast({ title: '提交成功', icon: 'success' })
+        const overwritten = res.data.overwritten === true
+        Taro.showToast({
+          title: overwritten ? '已覆盖更新' : '提交成功',
+          icon: 'success',
+          duration: overwritten ? 2500 : 1500,
+        })
+        if (overwritten) {
+          Taro.showToast({
+            title: '该科目已有记录，已用最新数据覆盖',
+            icon: 'none',
+            duration: 2500,
+          })
+        }
         // 重置表单
         setFormData({
           studentNo: '',

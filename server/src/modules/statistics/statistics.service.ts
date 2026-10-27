@@ -75,7 +75,7 @@ export class StatisticsService {
           where: inArray(examRecords.student_id, studentIds),
           columns: {
             id: true, student_id: true, subject_code: true, subject_name: true,
-            score: true, pass_status: true, exam_type: true,
+            score: true, pass_status: true, exam_type: true, exam_season: true,
           },
         })
       : []
@@ -93,6 +93,7 @@ export class StatisticsService {
           score: r.score,
           pass_status: r.pass_status,
           exam_type: r.exam_type || 'global_exam',
+          exam_season: r.exam_season,
         }))
       
       const exemptSet = new Set(EXEMPT_SUBJECTS)

@@ -12,10 +12,12 @@ export class ExamRecordsController {
     
     try {
       const record = await this.examRecordsService.createRecord(body)
+      const overwritten = (record as any)._overwritten === true
       return {
         code: 200,
-        msg: '创建成功',
-        data: record
+        msg: overwritten ? '覆盖成功：该科目已有记录，已用最新数据更新' : '创建成功',
+        data: record,
+        overwritten,
       }
     } catch (error) {
       console.error('创建失败:', error)

@@ -72,7 +72,35 @@ export class ExamRecordsService {
     const studentId = existingStudent.id
     console.log('找到学生:', studentId, existingStudent.name)
 
-    // 3. 创建考证记录
+    // 3. 同学号+同学科覆盖：避免同一科目重复上传，以最后一次为主
+    const existingRecord = await this.db.query.examRecords.findFirst({
+      where: and(
+        eq(examRecords.student_id, studentId),
+        eq(examRecords.subject_code, dto.subject_code),
+      ),
+      columns: { id: true, screenshot_key: true },
+    })
+
+    if (existingRecord) {
+      const [updated] = await this.db
+        .update(examRecords)
+        .set({
+          subject_name: dto.subject_name,
+          score: dto.score ?? null,
+          exam_season: dto.exam_season,
+          exam_type: dto.exam_type ?? 'global_exam',
+          pass_status: dto.pass_status,
+          screenshot_key: dto.screenshot_key ?? null,
+          notes: dto.notes ?? null,
+          updated_at: new Date(),
+        })
+        .where(eq(examRecords.id, existingRecord.id))
+        .returning()
+      console.log('同学号+同学科覆盖旧记录:', updated.id, '旧截图:', existingRecord.screenshot_key)
+      return { ...updated, _overwritten: true }
+    }
+
+    // 4. 首次上传，创建新记录
     const [record] = await this.db
       .insert(examRecords)
       .values({
