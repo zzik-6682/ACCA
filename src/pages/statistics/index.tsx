@@ -122,26 +122,47 @@ const StatisticsPage = () => {
         // H5 端：直接触发浏览器下载
         Taro.showToast({ title: '正在导出...', icon: 'loading' })
         
-        // H5 端使用 fetch 获取文件 blob，然后创建下载链接
-        const fullUrl = downloadUrl.startsWith('http')
-          ? downloadUrl
-          : `${PROJECT_DOMAIN}${downloadUrl}`
-        const response = await fetch(fullUrl)
-        if (!response.ok) {
-          throw new Error('下载失败')
+        // 构建完整 URL
+        let fullUrl = downloadUrl
+        if (!downloadUrl.startsWith('http')) {
+          // 优先使用 PROJECT_DOMAIN，否则使用当前页面域名
+          const domain = typeof PROJECT_DOMAIN !== 'undefined' && PROJECT_DOMAIN
+            ? PROJECT_DOMAIN
+            : window.location.origin
+          fullUrl = `${domain}${downloadUrl}`
         }
         
-        const blob = await response.blob()
-        const blobUrl = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = blobUrl
-        link.download = 'ACCA考试成绩统计.xlsx'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        URL.revokeObjectURL(blobUrl)
+        console.log('导出 URL:', fullUrl)
         
-        Taro.showToast({ title: '导出成功', icon: 'success' })
+        // 方式1：尝试 fetch + blob（现代浏览器）
+        try {
+          const response = await fetch(fullUrl)
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`)
+          }
+          
+          const blob = await response.blob()
+          const blobUrl = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = blobUrl
+          link.download = 'ACCA考试成绩统计.xlsx'
+          link.style.display = 'none'
+          document.body.appendChild(link)
+          link.click()
+          
+          // 延迟清理，确保下载开始
+          setTimeout(() => {
+            document.body.removeChild(link)
+            URL.revokeObjectURL(blobUrl)
+          }, 1000)
+          
+          Taro.showToast({ title: '导出成功', icon: 'success' })
+        } catch (fetchError) {
+          console.warn('fetch 方式失败，尝试直接下载:', fetchError)
+          // 方式2：直接打开下载链接（降级方案）
+          window.location.href = fullUrl
+          Taro.showToast({ title: '正在下载...', icon: 'success' })
+        }
       }
     } catch (error) {
       console.error('导出失败:', error)
